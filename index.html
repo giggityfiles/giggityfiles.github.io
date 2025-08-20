@@ -24,6 +24,13 @@
       color: #ffcc00;
       text-shadow: 2px 2px 0 #000;
     }
+    header p {
+      margin: 8px 0 0;
+      font-size: 1.2em;
+      color: #fff;
+      font-style: italic;
+      text-shadow: 1px 1px 0 #000;
+    }
     #repos, #files {
       padding: 20px;
     }
@@ -80,19 +87,18 @@
 <body>
   <header>
     <h1>Giggity Files</h1>
-    <p>“Giggity!” — Glenn Quagmire</p>
+    <p>"Alright! Giggity giggity goo!" – Glenn Quagmire</p>
   </header>
 
   <div id="repos"></div>
   <div id="files"></div>
 
   <footer>
-    ⚠️ Note: Some Windows applications may not work properly on macOS, Android, or Linux without using Wine or similar compatibility layers.  
+    ⚠ Some Windows apps might not work on macOS, Android, or Linux without Wine.  
   </footer>
 
   <script>
     const user = "giggityfiles";
-    const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
 
     async function listRepos() {
       const res = await fetch(`https://api.github.com/users/${user}/repos`);
@@ -101,28 +107,16 @@
 
       const ul = document.createElement("ul");
 
-      // Add "main" manually (point to giggityfiles.github.io)
-      const mainLi = document.createElement("li");
-      const mainIcon = document.createElement("img");
-      mainIcon.src = iconURL;
-      const mainLink = document.createElement("a");
-      mainLink.href = "#";
-      mainLink.textContent = "giggityfiles.github.io";
-      mainLink.onclick = () => listFiles("main", "");
-      mainLi.appendChild(mainIcon);
-      mainLi.appendChild(mainLink);
-      ul.appendChild(mainLi);
-
       repos.forEach(repo => {
-        if (repo.name === `${user}.github.io`) return; // skip pages repo
+        if (repo.name === `${user}.github.io`) return; // hide main assets repo
         const li = document.createElement("li");
-        const icon = document.createElement("img");
-        icon.src = iconURL;
+        const img = document.createElement("img");
+        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
         const a = document.createElement("a");
         a.href = "#";
         a.textContent = repo.name;
         a.onclick = () => listFiles(repo.name, "");
-        li.appendChild(icon);
+        li.appendChild(img);
         li.appendChild(a);
         ul.appendChild(li);
       });
@@ -131,104 +125,71 @@
       reposDiv.appendChild(ul);
     }
 
-    function renderBreadcrumbs(repo, path) {
-      const filesDiv = document.getElementById("files");
-      const parts = path.split("/").filter(Boolean);
-
-      const breadcrumbDiv = document.createElement("div");
-      breadcrumbDiv.className = "breadcrumbs";
-
-      // repo root
-      const repoIcon = document.createElement("img");
-      repoIcon.src = iconURL;
-      const repoLink = document.createElement("a");
-      repoLink.href = "#";
-      repoLink.textContent = repo;
-      repoLink.onclick = () => listFiles(repo, "");
-      breadcrumbDiv.appendChild(repoIcon);
-      breadcrumbDiv.appendChild(repoLink);
-
-      let currentPath = "";
-      parts.forEach((part) => {
-        breadcrumbDiv.appendChild(document.createTextNode(" / "));
-
-        const icon = document.createElement("img");
-        icon.src = iconURL;
-        breadcrumbDiv.appendChild(icon);
-
-        const partLink = document.createElement("a");
-        partLink.href = "#";
-        partLink.textContent = part;
-        currentPath += part + "/";
-        partLink.onclick = () => listFiles(repo, currentPath);
-        breadcrumbDiv.appendChild(partLink);
-      });
-
-      filesDiv.appendChild(breadcrumbDiv);
-    }
-
     async function listFiles(repo, path) {
-      let apiURL;
-      if (repo === "main") {
-        apiURL = `https://api.github.com/repos/${user}/${user}.github.io/contents/file/${path}`;
-      } else {
-        apiURL = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
-      }
-
+      let apiURL = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
       const res = await fetch(apiURL);
       const data = await res.json();
       const filesDiv = document.getElementById("files");
       filesDiv.innerHTML = "<h2>Files in " + repo + "/" + path + "</h2>";
 
-      // Breadcrumbs
-      renderBreadcrumbs(repo, path);
-
-      // If API returned an error object
       if (!Array.isArray(data)) {
         filesDiv.innerHTML += `<p style="color:red">Error: ${data.message || "Unknown error"}</p>`;
         return;
       }
 
+      // breadcrumbs
+      const breadcrumbs = document.createElement("div");
+      breadcrumbs.className = "breadcrumbs";
+      let crumbPath = "";
+      const parts = path.split("/").filter(p => p);
+      const rootLink = document.createElement("a");
+      rootLink.href = "#";
+      rootLink.textContent = repo;
+      rootLink.onclick = () => listFiles(repo, "");
+      breadcrumbs.appendChild(rootLink);
+
+      parts.forEach((part, idx) => {
+        crumbPath += part + "/";
+        const sep = document.createTextNode(" / ");
+        breadcrumbs.appendChild(sep);
+        const a = document.createElement("a");
+        a.href = "#";
+        a.textContent = part;
+        a.onclick = () => listFiles(repo, parts.slice(0, idx + 1).join("/") + "/");
+        breadcrumbs.appendChild(a);
+      });
+
+      filesDiv.appendChild(breadcrumbs);
+
       const ul = document.createElement("ul");
 
-      // add dirs
+      // dirs
       data.filter(item => item.type === "dir").forEach(d => {
         const li = document.createElement("li");
-        const icon = document.createElement("img");
-        icon.src = iconURL;
-        li.appendChild(icon);
-
-        const dirname = document.createElement("a");
-        dirname.href = "#";
-        dirname.style.fontWeight = "bold";
-        dirname.textContent = d.name;
-        dirname.onclick = () => listFiles(repo, path + d.name + "/");
-        li.appendChild(dirname);
-
+        const img = document.createElement("img");
+        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
+        const a = document.createElement("a");
+        a.href = "#";
+        a.textContent = d.name;
+        a.onclick = () => listFiles(repo, path + d.name + "/");
+        li.appendChild(img);
+        li.appendChild(a);
         ul.appendChild(li);
       });
 
-      // add files
+      // files
       data.filter(item => item.type === "file").forEach(f => {
         const li = document.createElement("li");
-        const icon = document.createElement("img");
-        icon.src = iconURL;
-        li.appendChild(icon);
-
-        const filename = document.createElement("span");
-        filename.style.fontWeight = "bold";
-        filename.textContent = f.name;
-        li.appendChild(filename);
-
+        const img = document.createElement("img");
+        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
+        const span = document.createElement("span");
+        span.textContent = f.name;
         const open = document.createElement("a");
-        if (repo === "main") {
-          open.href = `https://giggityfiles.github.io/file/${path}${f.name}`;
-        } else {
-          open.href = `https://giggityfiles.github.io/${repo}/${path}${f.name}`;
-        }
+        open.href = `https://giggityfiles.github.io/${repo}/${path}${f.name}`;
         open.textContent = " [Download]";
         open.setAttribute("download", f.name);
-
+        li.appendChild(img);
+        li.appendChild(span);
         li.appendChild(open);
         ul.appendChild(li);
       });

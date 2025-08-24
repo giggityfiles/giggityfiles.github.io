@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Giggity Files</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giggity Files Explorer</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
   <style>
     body {
@@ -24,12 +25,11 @@
       color: #ffcc00;
       text-shadow: 2px 2px 0 #000;
     }
-    header p {
-      margin: 8px 0 0;
-      font-size: 1.2em;
-      color: #fff;
-      font-style: italic;
-      text-shadow: 1px 1px 0 #000;
+    #quote {
+      margin-top: 10px;
+      font-size: 1em;
+      font-weight: bold;
+      color: #ccc;
     }
     #repos, #files {
       padding: 20px;
@@ -86,118 +86,297 @@
 </head>
 <body>
   <header>
-    <h1>Giggity Files</h1>
-    <p>"Alright! Giggity giggity goo!" – Glenn Quagmire</p>
+    <h1>Giggity Files Explorer</h1>
+    <div id="quote"></div>
   </header>
 
   <div id="repos"></div>
   <div id="files"></div>
 
   <footer>
-    ⚠ Some Windows apps might not work on macOS, Android, or Linux without Wine.  
+    Note: Some Windows apps may not work on macOS, Android, or Linux without Wine.
   </footer>
 
   <script>
-    const user = "giggityfiles";
+    // Random quotes for Quagmire theme
+    const quotes = [
+      "Giggity giggity goo!",
+      "Alright!",
+      "Whoa! That's hot!",
+      "Giggity giggity giggity!",
+      "Heh heh, all riiight!",
+      "Giggity!"
+    ];
+    document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
 
-    async function listRepos() {
-      const res = await fetch(`https://api.github.com/users/${user}/repos`);
-      const repos = await res.json();
-      const reposDiv = document.getElementById("repos");
+    // Maintenance redirect check
+    fetch('https://giggityfiles.github.io/maintenance.txt')
+      .then(res => res.text())
+      .then(text => {
+        if (text.trim() === "true") {
+          const meta = document.createElement('meta');
+          meta.httpEquiv = "refresh";
+          meta.content = "0; url=https://giggityfiles.github.io/maintenance.html";
+          document.head.appendChild(meta);
+        }
+      })
+      .catch(() => {});
 
-      const ul = document.createElement("ul");
+    const reposDiv = document.getElementById('repos');
+    const filesDiv = document.getElementById('files');
+    const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
+    const mainRepo = "giggityfiles.github.io";
 
-      repos.forEach(repo => {
-        if (repo.name === `${user}.github.io`) return; // hide main assets repo
-        const li = document.createElement("li");
-        const img = document.createElement("img");
-        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
-        const a = document.createElement("a");
-        a.href = "#";
-        a.textContent = repo.name;
-        a.onclick = () => listFiles(repo.name, "");
-        li.appendChild(img);
-        li.appendChild(a);
-        ul.appendChild(li);
-      });
+    // Load repos list
+    function loadRepos() {
+      reposDiv.innerHTML = "<h2>Available Repos</h2><ul id='repoList'></ul>";
+      const ul = document.getElementById('repoList');
 
-      reposDiv.innerHTML = "<h2>Repositories</h2>";
-      reposDiv.appendChild(ul);
+      fetch('https://api.github.com/users/giggityfiles/repos')
+        .then(res => res.json())
+        .then(repos => {
+          repos.forEach(repo => {
+            if (repo.name !== mainRepo.replace('.github.io', '')) {
+              const li = document.createElement('li');
+              li.innerHTML = `<img src="${iconURL}" alt="icon">
+                <a href="#" onclick="listFiles('${repo.name}', '')">${repo.name}</a>`;
+              ul.appendChild(li);
+            }
+          });
+        })
+        .catch(err => {
+          ul.innerHTML = "<li>Error loading repos.</li>";
+        });
     }
 
-    async function listFiles(repo, path) {
-      let apiURL = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
-      const res = await fetch(apiURL);
-      const data = await res.json();
-      const filesDiv = document.getElementById("files");
-      filesDiv.innerHTML = "<h2>Files in " + repo + "/" + path + "</h2>";
-
-      if (!Array.isArray(data)) {
-        filesDiv.innerHTML += `<p style="color:red">Error: ${data.message || "Unknown error"}</p>`;
-        return;
-      }
-
-      // breadcrumbs
-      const breadcrumbs = document.createElement("div");
-      breadcrumbs.className = "breadcrumbs";
-      let crumbPath = "";
-      const parts = path.split("/").filter(p => p);
-      const rootLink = document.createElement("a");
-      rootLink.href = "#";
-      rootLink.textContent = repo;
-      rootLink.onclick = () => listFiles(repo, "");
-      breadcrumbs.appendChild(rootLink);
-
-      parts.forEach((part, idx) => {
-        crumbPath += part + "/";
-        const sep = document.createTextNode(" / ");
-        breadcrumbs.appendChild(sep);
-        const a = document.createElement("a");
-        a.href = "#";
-        a.textContent = part;
-        a.onclick = () => listFiles(repo, parts.slice(0, idx + 1).join("/") + "/");
-        breadcrumbs.appendChild(a);
+    // Render breadcrumbs
+    function renderBreadcrumbs(repo, path) {
+      const parts = path.split('/').filter(Boolean);
+      let breadcrumbHTML = `<div class="breadcrumbs"><img src="${iconURL}" alt="icon">
+        <a href="#" onclick="listFiles('${repo}', '')">${repo}</a>`;
+      let currentPath = '';
+      parts.forEach(part => {
+        currentPath += part + '/';
+        breadcrumbHTML += ` / <a href="#" onclick="listFiles('${repo}', '${currentPath}')">${part}</a>`;
       });
-
-      filesDiv.appendChild(breadcrumbs);
-
-      const ul = document.createElement("ul");
-
-      // dirs
-      data.filter(item => item.type === "dir").forEach(d => {
-        const li = document.createElement("li");
-        const img = document.createElement("img");
-        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
-        const a = document.createElement("a");
-        a.href = "#";
-        a.textContent = d.name;
-        a.onclick = () => listFiles(repo, path + d.name + "/");
-        li.appendChild(img);
-        li.appendChild(a);
-        ul.appendChild(li);
-      });
-
-      // files
-      data.filter(item => item.type === "file").forEach(f => {
-        const li = document.createElement("li");
-        const img = document.createElement("img");
-        img.src = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
-        const span = document.createElement("span");
-        span.textContent = f.name;
-        const open = document.createElement("a");
-        open.href = `https://giggityfiles.github.io/${repo}/${path}${f.name}`;
-        open.textContent = " [Download]";
-        open.setAttribute("download", f.name);
-        li.appendChild(img);
-        li.appendChild(span);
-        li.appendChild(open);
-        ul.appendChild(li);
-      });
-
-      filesDiv.appendChild(ul);
+      breadcrumbHTML += "</div>";
+      filesDiv.innerHTML = breadcrumbHTML;
     }
 
-    listRepos();
+    // List files in repo
+    function listFiles(repo, path) {
+      filesDiv.innerHTML = "<p>Loading...</p>";
+      fetch(`https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`)
+        .then(res => res.json())
+        .then(data => {
+          filesDiv.innerHTML = "";
+          renderBreadcrumbs(repo, path);
+          const ul = document.createElement('ul');
+          data.forEach(file => {
+            const li = document.createElement('li');
+            li.innerHTML = `<img src="${iconURL}" alt="icon"> 
+              <a href="${file.download_url}" target="_blank">${file.name}</a>`;
+            ul.appendChild(li);
+          });
+          filesDiv.appendChild(ul);
+        })
+        .catch(() => {
+          filesDiv.innerHTML = "<p>Error loading files.</p>";
+        });
+    }
+
+    loadRepos();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giggity Files Explorer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Oswald', sans-serif;
+      background: #111;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #b30000;
+      padding: 20px;
+      text-align: center;
+      border-bottom: 4px solid #ffcc00;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.5em;
+      color: #ffcc00;
+      text-shadow: 2px 2px 0 #000;
+    }
+    #quote {
+      margin-top: 10px;
+      font-size: 1em;
+      font-weight: bold;
+      color: #ccc;
+    }
+    #repos, #files {
+      padding: 20px;
+    }
+    a {
+      color: #0af;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    ul {
+      list-style: none;
+      padding-left: 20px;
+    }
+    li {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+    }
+    li img {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+    .breadcrumbs {
+      margin: 10px 0;
+      font-size: 0.9em;
+      font-weight: bold;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+    }
+    .breadcrumbs img {
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+    }
+    .breadcrumbs a {
+      color: #ffcc00;
+    }
+    footer {
+      margin-top: 30px;
+      padding: 15px;
+      background: #222;
+      text-align: center;
+      font-size: 0.9em;
+      color: #ccc;
+      border-top: 3px solid #b30000;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Giggity Files Explorer</h1>
+    <div id="quote"></div>
+  </header>
+
+  <div id="repos"></div>
+  <div id="files"></div>
+
+  <footer>
+    Note: Some Windows apps may not work on macOS, Android, or Linux without Wine.
+  </footer>
+
+  <script>
+    // Random quotes for Quagmire theme
+    const quotes = [
+      "Giggity giggity goo!",
+      "Alright!",
+      "Whoa! That's hot!",
+      "Giggity giggity giggity!",
+      "Heh heh, all riiight!",
+      "Giggity!"
+    ];
+    document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+
+    // Maintenance redirect check
+    fetch('https://giggityfiles.github.io/maintenance.txt')
+      .then(res => res.text())
+      .then(text => {
+        if (text.trim() === "true") {
+          const meta = document.createElement('meta');
+          meta.httpEquiv = "refresh";
+          meta.content = "0; url=https://giggityfiles.github.io/maintenance.html";
+          document.head.appendChild(meta);
+        }
+      })
+      .catch(() => {});
+
+    const reposDiv = document.getElementById('repos');
+    const filesDiv = document.getElementById('files');
+    const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
+    const mainRepo = "giggityfiles.github.io";
+
+    // Load repos list
+    function loadRepos() {
+      reposDiv.innerHTML = "<h2>Available Repos</h2><ul id='repoList'></ul>";
+      const ul = document.getElementById('repoList');
+
+      fetch('https://api.github.com/users/giggityfiles/repos')
+        .then(res => res.json())
+        .then(repos => {
+          repos.forEach(repo => {
+            if (repo.name !== mainRepo.replace('.github.io', '')) {
+              const li = document.createElement('li');
+              li.innerHTML = `<img src="${iconURL}" alt="icon">
+                <a href="#" onclick="listFiles('${repo.name}', '')">${repo.name}</a>`;
+              ul.appendChild(li);
+            }
+          });
+        })
+        .catch(err => {
+          ul.innerHTML = "<li>Error loading repos.</li>";
+        });
+    }
+
+    // Render breadcrumbs
+    function renderBreadcrumbs(repo, path) {
+      const parts = path.split('/').filter(Boolean);
+      let breadcrumbHTML = `<div class="breadcrumbs"><img src="${iconURL}" alt="icon">
+        <a href="#" onclick="listFiles('${repo}', '')">${repo}</a>`;
+      let currentPath = '';
+      parts.forEach(part => {
+        currentPath += part + '/';
+        breadcrumbHTML += ` / <a href="#" onclick="listFiles('${repo}', '${currentPath}')">${part}</a>`;
+      });
+      breadcrumbHTML += "</div>";
+      filesDiv.innerHTML = breadcrumbHTML;
+    }
+
+    // List files in repo
+    function listFiles(repo, path) {
+      filesDiv.innerHTML = "<p>Loading...</p>";
+      fetch(`https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`)
+        .then(res => res.json())
+        .then(data => {
+          filesDiv.innerHTML = "";
+          renderBreadcrumbs(repo, path);
+          const ul = document.createElement('ul');
+          data.forEach(file => {
+            const li = document.createElement('li');
+            li.innerHTML = `<img src="${iconURL}" alt="icon"> 
+              <a href="${file.download_url}" target="_blank">${file.name}</a>`;
+            ul.appendChild(li);
+          });
+          filesDiv.appendChild(ul);
+        })
+        .catch(() => {
+          filesDiv.innerHTML = "<p>Error loading files.</p>";
+        });
+    }
+
+    loadRepos();
   </script>
 </body>
 </html>

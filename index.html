@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Giggity Files</title>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Oswald&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Oswald', sans-serif;
@@ -28,7 +28,13 @@
     #quote {
       margin: 10px 0;
       font-style: italic;
-      color: #ccc;
+    }
+    #quote.plankton {
+      color: #e0e0e0;
+      text-shadow: 1px 1px 2px #000;
+    }
+    #quote.plankton-red {
+      color: #ff4444;
     }
     #repos, #files {
       padding: 20px;
@@ -37,13 +43,14 @@
       color: #0af;
       text-decoration: none;
       font-weight: bold;
+      cursor: pointer;
     }
     a:hover {
       text-decoration: underline;
     }
     ul {
       list-style: none;
-      padding-left: 20px;
+      padding-left: 0;
     }
     li {
       margin: 8px 0;
@@ -64,22 +71,8 @@
       align-items: center;
       gap: 4px;
     }
-    .breadcrumbs img {
-      width: 16px;
-      height: 16px;
-      margin-right: 4px;
-    }
     .breadcrumbs a {
       color: #ffcc00;
-    }
-    footer {
-      margin-top: 30px;
-      padding: 15px;
-      background: #222;
-      text-align: center;
-      font-size: 0.9em;
-      color: #ccc;
-      border-top: 3px solid #b30000;
     }
     button.download {
       background: #ffcc00;
@@ -93,111 +86,133 @@
     button.download:hover {
       background: #ffaa00;
     }
+    footer {
+      margin-top: 30px;
+      padding: 15px;
+      background: #222;
+      text-align: center;
+      font-size: 0.9em;
+      color: #ccc;
+      border-top: 3px solid #b30000;
+    }
+    .roboto {
+      font-family: 'Roboto', sans-serif !important;
+    }
   </style>
 </head>
 <body>
   <header>
     <h1>Giggity Files</h1>
-    <div id="quote"></div>
+    <div id="quote" class="plankton"></div>
   </header>
 
   <div id="repos"></div>
   <div id="files"></div>
 
   <footer>
-    Note: Some Windows apps may not work on macOS, Android, or Linux without Wine.
+    Note: Some Windows apps might not work on macOS, Android, or Linux without Wine.
   </footer>
 
   <script>
-    // Maintenance redirect logic
-    fetch('/maintenance-flag.txt')
+    // Maintenance redirect with cache-buster
+    fetch('/maintenance.txt?cb=' + Date.now())
       .then(r => r.text())
-      .then(text => {
-        if (text.trim() === "true") {
-          document.write('<meta http-equiv="refresh" content="0;url=https://giggityfiles.github.io/maintenance.html">');
+      .then(txt => {
+        if (txt.trim().toLowerCase() === 'true') {
+          window.location.href = 'https://giggityfiles.github.io/maintenance.html';
         }
-      });
+      })
+      .catch(console.error);
 
-    // Quotes system with rare chance
+    // Quotes arrays
     const commonQuotes = [
       "Giggity giggity goo!",
       "Alright!",
       "Heh heh, oh yeah!",
-      "It’s gonna be a good night, giggity.",
-      "Who else but Quagmire?",
-      "Giggity giggity, let’s go!",
-      "Yeah, baby! Giggity!",
-      "Hey, neighbor! Giggity giggity!",
+      "Giggity, let's do it!",
       "You know what time it is... Giggity time!",
-      "Oh, yeah. Giggity."
+      "Yeah, baby! Giggity!",
+      "Who else but Quagmire?",
+      "Oh, yeah. Giggity.",
+      "Ready for action, giggity!"
     ];
-
     const rareQuotes = [
-      "Peter: Heh heh, freakin' sweet!",
+      "Peter: Freakin' sweet!",
       "Cleveland: Oh, that's nasty.",
       "Joe: Bring it on!",
-      "Peter: Lois, remember the time I invented the word 'Giggity'?",
+      "Peter: Lois, I invented 'Giggity'!",
       "Cleveland: I'm just gonna go... over here.",
-      "Joe: Yeah! That’s how we roll, partner!",
-      "Peter: Whoa, whoa, whoa, hold up now!",
-      "Cleveland: My lawn mower doesn’t like stairs, Peter.",
-      "Joe: You guys are crazy, but I love it!",
-      "Peter: Remember the chicken fight? Yeah, that was awesome."
+      "Joe: That's how we roll, partner!",
+      "Peter: Hold up now!",
+      "Cleveland: My mower hates stairs.",
+      "Joe: You guys are crazy, but I love it!"
     ];
+    const planktonQuote = "Plankton: Dr. Jr.";
 
-    const quote = (Math.floor(Math.random() * 5000) === 0)
-      ? rareQuotes[Math.floor(Math.random() * rareQuotes.length)]
-      : commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
-
-    document.getElementById("quote").innerText = quote;
-
-    // Repo/file navigation
-    const reposDiv = document.getElementById('repos');
-    const filesDiv = document.getElementById('files');
-    const baseRepo = 'https://api.github.com/repos/giggityfiles/';
-    let currentPath = '';
-
-    function loadRepos() {
-      fetch(baseRepo + 'repos')
-        .then(res => res.json())
-        .then(data => {
-          reposDiv.innerHTML = '<h2>Repositories</h2><ul>' +
-            data
-              .filter(repo => repo.name !== 'giggityfiles.github.io')
-              .map(repo => `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
-              .join('') +
-            '</ul>';
-        });
+    // Decide quote type
+    const quoteEl = document.getElementById('quote');
+    const rand = Math.floor(Math.random() * 10000);
+    if (rand === 0) {
+      quoteEl.textContent = planktonQuote;
+      quoteEl.classList.add('plankton-red');
+    } else if (rand <= 1) {
+      quoteEl.textContent = rareQuotes[Math.floor(Math.random() * rareQuotes.length)];
+    } else {
+      quoteEl.textContent = commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
     }
 
-    function loadFiles(repo, path = '') {
-      currentPath = path;
-      const url = `https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`;
-      fetch(url)
-        .then(res => res.json())
-        .then(items => {
-          // Breadcrumb navigation
-          const crumbs = path ? path.split('/') : [];
-          let breadcrumbHTML = `<div class="breadcrumbs"><a href="#" onclick="loadRepos()">Home</a>`;
-          let cumulativePath = '';
-          crumbs.forEach((part, index) => {
-            cumulativePath += (index > 0 ? '/' : '') + part;
-            breadcrumbHTML += ` / <a href="#" onclick="loadFiles('${repo}', '${cumulativePath}')">${part}</a>`;
-          });
-          breadcrumbHTML += '</div>';
+    // Randomly apply Roboto to one element, 1 in 10000 chance
+    if (Math.floor(Math.random() * 10000) === 0) {
+      const allEls = document.querySelectorAll('h1, #quote, #repos, #files, footer');
+      const chosen = allEls[Math.floor(Math.random() * allEls.length)];
+      chosen.classList.add('roboto');
+    }
 
-          filesDiv.innerHTML = breadcrumbHTML + '<ul>' +
-            items.map(item =>
-              `<li>
-                <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/>
-                ${item.type === 'dir'
-                  ? `<a href="#" onclick="loadFiles('${repo}', '${item.path}')">${item.name}</a>`
-                  : `<span>${item.name}</span><button class="download" onclick="window.open('${item.download_url}')">Download</button>`
-                }
-              </li>`
-            ).join('') +
-            '</ul>';
-        });
+    // Load repos
+    async function loadRepos() {
+      const res = await fetch('https://api.github.com/users/giggityfiles/repos');
+      const repos = await res.json();
+      const html = ['<h2>Repositories</h2><ul>'];
+      repos.forEach(repo => {
+        if (repo.name.toLowerCase() !== 'giggityfiles.github.io') {
+          html.push(`<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"><a onclick="loadFiles('${repo.name}','')">${repo.name}</a></li>`);
+        }
+      });
+      html.push('</ul>');
+      document.getElementById('repos').innerHTML = html.join('');
+    }
+
+    // Load files
+    async function loadFiles(repo, path) {
+      const res = await fetch(`https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`);
+      const items = await res.json();
+
+      // Breadcrumbs
+      const parts = path ? path.split('/') : [];
+      const crumbs = [`<a onclick="loadRepos()">Home</a>`];
+      let cumPath = '';
+      parts.forEach(part => {
+        cumPath += part + '/';
+        crumbs.push(`<a onclick="loadFiles('${repo}','${cumPath}')">${part}</a>`);
+      });
+
+      let html = `<div class="breadcrumbs">${crumbs.join(' / ')}</div><ul>`;
+      items.forEach(item => {
+        if (item.type === 'dir') {
+          html += `<li>
+                    <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png">
+                    <a onclick="loadFiles('${repo}','${item.path}')">${item.name}</a>
+                  </li>`;
+        } else {
+          html += `<li>
+                    <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png">
+                    <span>${item.name}</span>
+                    <button class="download" onclick="window.open('${item.download_url}')">Download</button>
+                  </li>`;
+        }
+      });
+      html += '</ul>';
+      document.getElementById('files').innerHTML = html;
     }
 
     loadRepos();

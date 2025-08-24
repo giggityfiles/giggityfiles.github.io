@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Giggity Files</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
   <style>
@@ -27,8 +26,8 @@
       text-shadow: 2px 2px 0 #000;
     }
     #quote {
-      margin-top: 10px;
-      font-size: 1.2em;
+      margin: 10px 0;
+      font-style: italic;
       color: #ccc;
     }
     #repos, #files {
@@ -82,54 +81,126 @@
       color: #ccc;
       border-top: 3px solid #b30000;
     }
+    button.download {
+      background: #ffcc00;
+      color: #000;
+      border: none;
+      padding: 5px 10px;
+      margin-left: auto;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button.download:hover {
+      background: #ffaa00;
+    }
   </style>
 </head>
 <body>
   <header>
     <h1>Giggity Files</h1>
-    <div id="quote">Loading quote...</div>
+    <div id="quote"></div>
   </header>
 
-  <div id="repos">
-    <h2>Repositories</h2>
-    <ul id="repoList"></ul>
-  </div>
-
-  <div id="files">
-    <h2>Files</h2>
-    <div class="breadcrumbs" id="breadcrumbs"></div>
-    <ul id="fileList"></ul>
-  </div>
+  <div id="repos"></div>
+  <div id="files"></div>
 
   <footer>
-    &copy; 2025 Giggity Files. All rights reserved.
+    Note: Some Windows apps may not work on macOS, Android, or Linux without Wine.
   </footer>
 
   <script>
-    // Random quote rotation
-    const quotes = [
-      "Giggity giggity goo!",
-      "Ohhh right!",
-      "You know what really grinds my gears? Slow downloads.",
-      "Quagmire approved content, giggity!",
-      "All files, all fun — that's Giggity Files!"
-    ];
-    document.getElementById("quote").textContent =
-      quotes[Math.floor(Math.random() * quotes.length)];
-
-    // Maintenance check with cache-busting
-    const cacheBuster = `?cb=${Date.now()}`;
-    fetch(`https://giggityfiles.github.io/maintenance.txt${cacheBuster}`)
-      .then(response => response.text())
+    // Maintenance redirect logic
+    fetch('/maintenance-flag.txt')
+      .then(r => r.text())
       .then(text => {
-        if (text.trim().toLowerCase() === "true") {
-          const meta = document.createElement("meta");
-          meta.httpEquiv = "refresh";
-          meta.content = "0; url=https://giggityfiles.github.io/maintenance.html";
-          document.head.appendChild(meta);
+        if (text.trim() === "true") {
+          document.write('<meta http-equiv="refresh" content="0;url=https://giggityfiles.github.io/maintenance.html">');
         }
-      })
-      .catch(err => console.error("Maintenance check failed:", err));
+      });
+
+    // Quotes system with rare chance
+    const commonQuotes = [
+      "Giggity giggity goo!",
+      "Alright!",
+      "Heh heh, oh yeah!",
+      "It’s gonna be a good night, giggity.",
+      "Who else but Quagmire?",
+      "Giggity giggity, let’s go!",
+      "Yeah, baby! Giggity!",
+      "Hey, neighbor! Giggity giggity!",
+      "You know what time it is... Giggity time!",
+      "Oh, yeah. Giggity."
+    ];
+
+    const rareQuotes = [
+      "Peter: Heh heh, freakin' sweet!",
+      "Cleveland: Oh, that's nasty.",
+      "Joe: Bring it on!",
+      "Peter: Lois, remember the time I invented the word 'Giggity'?",
+      "Cleveland: I'm just gonna go... over here.",
+      "Joe: Yeah! That’s how we roll, partner!",
+      "Peter: Whoa, whoa, whoa, hold up now!",
+      "Cleveland: My lawn mower doesn’t like stairs, Peter.",
+      "Joe: You guys are crazy, but I love it!",
+      "Peter: Remember the chicken fight? Yeah, that was awesome."
+    ];
+
+    const quote = (Math.floor(Math.random() * 5000) === 0)
+      ? rareQuotes[Math.floor(Math.random() * rareQuotes.length)]
+      : commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
+
+    document.getElementById("quote").innerText = quote;
+
+    // Repo/file navigation
+    const reposDiv = document.getElementById('repos');
+    const filesDiv = document.getElementById('files');
+    const baseRepo = 'https://api.github.com/repos/giggityfiles/';
+    let currentPath = '';
+
+    function loadRepos() {
+      fetch(baseRepo + 'repos')
+        .then(res => res.json())
+        .then(data => {
+          reposDiv.innerHTML = '<h2>Repositories</h2><ul>' +
+            data
+              .filter(repo => repo.name !== 'giggityfiles.github.io')
+              .map(repo => `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
+              .join('') +
+            '</ul>';
+        });
+    }
+
+    function loadFiles(repo, path = '') {
+      currentPath = path;
+      const url = `https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`;
+      fetch(url)
+        .then(res => res.json())
+        .then(items => {
+          // Breadcrumb navigation
+          const crumbs = path ? path.split('/') : [];
+          let breadcrumbHTML = `<div class="breadcrumbs"><a href="#" onclick="loadRepos()">Home</a>`;
+          let cumulativePath = '';
+          crumbs.forEach((part, index) => {
+            cumulativePath += (index > 0 ? '/' : '') + part;
+            breadcrumbHTML += ` / <a href="#" onclick="loadFiles('${repo}', '${cumulativePath}')">${part}</a>`;
+          });
+          breadcrumbHTML += '</div>';
+
+          filesDiv.innerHTML = breadcrumbHTML + '<ul>' +
+            items.map(item =>
+              `<li>
+                <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/>
+                ${item.type === 'dir'
+                  ? `<a href="#" onclick="loadFiles('${repo}', '${item.path}')">${item.name}</a>`
+                  : `<span>${item.name}</span><button class="download" onclick="window.open('${item.download_url}')">Download</button>`
+                }
+              </li>`
+            ).join('') +
+            '</ul>';
+        });
+    }
+
+    loadRepos();
   </script>
 </body>
 </html>

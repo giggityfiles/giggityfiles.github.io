@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Giggity Files</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Oswald&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Oswald', sans-serif;
@@ -25,17 +24,6 @@
       color: #ffcc00;
       text-shadow: 2px 2px 0 #000;
     }
-    #quote {
-      margin: 10px 0;
-      font-style: italic;
-    }
-    #quote.plankton {
-      color: #e0e0e0;
-      text-shadow: 1px 1px 2px #000;
-    }
-    #quote.plankton-red {
-      color: #ff4444;
-    }
     #repos, #files {
       padding: 20px;
     }
@@ -43,14 +31,13 @@
       color: #0af;
       text-decoration: none;
       font-weight: bold;
-      cursor: pointer;
     }
     a:hover {
       text-decoration: underline;
     }
     ul {
       list-style: none;
-      padding-left: 0;
+      padding-left: 20px;
     }
     li {
       margin: 8px 0;
@@ -73,18 +60,7 @@
     }
     .breadcrumbs a {
       color: #ffcc00;
-    }
-    button.download {
-      background: #ffcc00;
-      color: #000;
-      border: none;
-      padding: 5px 10px;
-      margin-left: auto;
       cursor: pointer;
-      font-weight: bold;
-    }
-    button.download:hover {
-      background: #ffaa00;
     }
     footer {
       margin-top: 30px;
@@ -95,124 +71,105 @@
       color: #ccc;
       border-top: 3px solid #b30000;
     }
-    .roboto {
-      font-family: 'Roboto', sans-serif !important;
-    }
   </style>
 </head>
 <body>
   <header>
     <h1>Giggity Files</h1>
-    <div id="quote" class="plankton"></div>
+    <p id="quote"></p>
   </header>
 
+  <div class="breadcrumbs" id="breadcrumbs"></div>
   <div id="repos"></div>
   <div id="files"></div>
 
   <footer>
-    Note: Some Windows apps might not work on macOS, Android, or Linux without Wine.
+    Note: Some Windows applications might not work on macOS, Android, or Linux without Wine.
   </footer>
 
   <script>
-    // Maintenance redirect with cache-buster
-    fetch('/maintenance.txt?cb=' + Date.now())
-      .then(r => r.text())
-      .then(txt => {
-        if (txt.trim().toLowerCase() === 'true') {
-          window.location.href = 'https://giggityfiles.github.io/maintenance.html';
-        }
-      })
-      .catch(console.error);
+    const API_URL = "https://api.github.com/users/giggityfiles/repos";
+    const BASE_URL = "https://giggityfiles.github.io/";
 
-    // Quotes arrays
+    // Quotes
     const commonQuotes = [
-      "Giggity giggity goo!",
-      "Alright!",
-      "Heh heh, oh yeah!",
-      "Giggity, let's do it!",
-      "You know what time it is... Giggity time!",
-      "Yeah, baby! Giggity!",
-      "Who else but Quagmire?",
-      "Oh, yeah. Giggity.",
-      "Ready for action, giggity!"
+      "Heh heh, oh yeah!", "It’s gonna be a good night, giggity.",
+      "Giggity giggity goo!", "Alright!", "Yeah, baby! Giggity!",
+      "You know what time it is... Giggity time!", "Hey, neighbor! Giggity giggity!"
     ];
     const rareQuotes = [
-      "Peter: Freakin' sweet!",
-      "Cleveland: Oh, that's nasty.",
-      "Joe: Bring it on!",
-      "Peter: Lois, I invented 'Giggity'!",
-      "Cleveland: I'm just gonna go... over here.",
-      "Joe: That's how we roll, partner!",
-      "Peter: Hold up now!",
-      "Cleveland: My mower hates stairs.",
-      "Joe: You guys are crazy, but I love it!"
+      "JOE: Bring it on!",
+      "CLEVELAND: Oh, that's nasty.",
+      "PETER: Freakin' sweet!",
+      "PLANKTON: Dr. Jr."
     ];
-    const planktonQuote = "Plankton: Dr. Jr.";
 
-    // Decide quote type
-    const quoteEl = document.getElementById('quote');
-    const rand = Math.floor(Math.random() * 10000);
-    if (rand === 0) {
-      quoteEl.textContent = planktonQuote;
-      quoteEl.classList.add('plankton-red');
-    } else if (rand <= 1) {
-      quoteEl.textContent = rareQuotes[Math.floor(Math.random() * rareQuotes.length)];
-    } else {
-      quoteEl.textContent = commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
+    // Random quote function with rare chances
+    function randomQuote() {
+      let chance = Math.floor(Math.random() * 50000) + 1;
+      if (chance === 1) return "PLANKTON: Dr. Jr.";
+      if (chance <= 10) return rareQuotes[Math.floor(Math.random() * (rareQuotes.length - 1))];
+      return commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
     }
 
-    // Randomly apply Roboto to one element, 1 in 10000 chance
+    document.getElementById("quote").innerText = randomQuote();
+
+    // Random chance to apply Roboto font to a random element
     if (Math.floor(Math.random() * 10000) === 0) {
-      const allEls = document.querySelectorAll('h1, #quote, #repos, #files, footer');
-      const chosen = allEls[Math.floor(Math.random() * allEls.length)];
-      chosen.classList.add('roboto');
+      let elements = document.querySelectorAll("*");
+      let randomElement = elements[Math.floor(Math.random() * elements.length)];
+      randomElement.style.fontFamily = "Roboto, sans-serif";
     }
 
-    // Load repos
+    // Load repo list (excluding main)
     async function loadRepos() {
-      const res = await fetch('https://api.github.com/users/giggityfiles/repos');
-      const repos = await res.json();
-      const html = ['<h2>Repositories</h2><ul>'];
-      repos.forEach(repo => {
-        if (repo.name.toLowerCase() !== 'giggityfiles.github.io') {
-          html.push(`<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"><a onclick="loadFiles('${repo.name}','')">${repo.name}</a></li>`);
-        }
-      });
-      html.push('</ul>');
-      document.getElementById('repos').innerHTML = html.join('');
+      try {
+        const response = await fetch(API_URL);
+        const repos = await response.json();
+        const repoList = document.getElementById("repos");
+        repoList.innerHTML = "<h2>Repositories</h2><ul>" +
+          repos
+            .filter(repo => repo.name !== "main" && repo.name !== "giggityfiles.github.io") // HIDE main repo
+            .map(repo => `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
+            .join('') +
+          "</ul>";
+      } catch (err) {
+        document.getElementById("repos").innerText = "Failed to load repositories.";
+      }
     }
 
-    // Load files
-    async function loadFiles(repo, path) {
-      const res = await fetch(`https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`);
-      const items = await res.json();
+    // Load files within a repo
+    async function loadFiles(repo, path = "") {
+      const filesContainer = document.getElementById("files");
+      const breadcrumbs = document.getElementById("breadcrumbs");
+      try {
+        const apiUrl = `https://api.github.com/repos/giggityfiles/${repo}/contents/${path}`;
+        const response = await fetch(apiUrl);
+        const files = await response.json();
 
-      // Breadcrumbs
-      const parts = path ? path.split('/') : [];
-      const crumbs = [`<a onclick="loadRepos()">Home</a>`];
-      let cumPath = '';
-      parts.forEach(part => {
-        cumPath += part + '/';
-        crumbs.push(`<a onclick="loadFiles('${repo}','${cumPath}')">${part}</a>`);
-      });
+        // Breadcrumbs
+        const parts = path.split("/").filter(Boolean);
+        let breadcrumbHTML = `<a onclick="loadRepos()">Home</a> / <a onclick="loadFiles('${repo}')">${repo}</a>`;
+        parts.forEach((part, idx) => {
+          const subPath = parts.slice(0, idx + 1).join("/");
+          breadcrumbHTML += ` / <a onclick="loadFiles('${repo}', '${subPath}')">${part}</a>`;
+        });
+        breadcrumbs.innerHTML = breadcrumbHTML;
 
-      let html = `<div class="breadcrumbs">${crumbs.join(' / ')}</div><ul>`;
-      items.forEach(item => {
-        if (item.type === 'dir') {
-          html += `<li>
-                    <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png">
-                    <a onclick="loadFiles('${repo}','${item.path}')">${item.name}</a>
-                  </li>`;
-        } else {
-          html += `<li>
-                    <img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png">
-                    <span>${item.name}</span>
-                    <button class="download" onclick="window.open('${item.download_url}')">Download</button>
-                  </li>`;
-        }
-      });
-      html += '</ul>';
-      document.getElementById('files').innerHTML = html;
+        // Files and folders
+        filesContainer.innerHTML = "<h2>Files</h2><ul>" +
+          files.map(file =>
+            `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/>
+            ${file.type === "dir"
+              ? `<a href="#" onclick="loadFiles('${repo}', '${file.path}')">${file.name}</a>`
+              : `<a href="${BASE_URL}${repo}/${file.path}" target="_blank">${file.name}</a> 
+                <button onclick="window.open('${BASE_URL}${repo}/${file.path}')">Download</button>`}
+            </li>`
+          ).join('') +
+          "</ul>";
+      } catch (err) {
+        filesContainer.innerText = "Failed to load files.";
+      }
     }
 
     loadRepos();

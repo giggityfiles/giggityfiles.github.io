@@ -124,6 +124,7 @@
   <script>
     const API_URL = "https://api.github.com/users/giggityfiles/repos";
     const BASE_URL = "https://giggityfiles.github.io/";
+    const ICON_URL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
 
     // Quotes
     const commonQuotes = [
@@ -163,7 +164,7 @@
         repoList.innerHTML = "<h2>Repositories</h2><ul>" +
           repos
             .filter(repo => repo.name !== "main" && repo.name !== "giggityfiles.github.io")
-            .map(repo => `<li><img src="https://img.icons8.com/ios-filled/50/000000/folder.png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
+            .map(repo => `<li><img src="${ICON_URL}"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
             .join('') +
           "</ul>";
       } catch (err) {
@@ -191,7 +192,7 @@
         // Files
         filesContainer.innerHTML = "<h2>Files</h2><ul>" +
           files.map(file =>
-            `<li><img src="${file.type === "dir" ? 'https://img.icons8.com/ios-filled/50/000000/folder.png' : 'https://img.icons8.com/ios-filled/50/000000/file.png'}"/>
+            `<li><img src="${ICON_URL}"/>
               ${file.type === "dir"
                 ? `<a href="#" onclick="loadFiles('${repo}', '${file.path}')">${file.name}</a>`
                 : `<a href="${BASE_URL}${repo}/${file.path}" target="_blank">${file.name}</a>

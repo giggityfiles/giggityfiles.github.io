@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Giggity Files</title>
+
+  <!-- Google Fonts: Oswald -->
+  <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+
   <style>
     body {
       font-family: 'Oswald', sans-serif;
@@ -23,6 +27,16 @@
       font-size: 2.5em;
       color: #ffcc00;
       text-shadow: 2px 2px 0 #000;
+    }
+    #quote {
+      margin-top: 8px;
+      font-style: italic;
+      font-size: 1.1em;
+    }
+    #visit-bar {
+      background: #000;
+      padding: 10px;
+      text-align: center;
     }
     #repos, #files {
       padding: 20px;
@@ -71,6 +85,17 @@
       color: #ccc;
       border-top: 3px solid #b30000;
     }
+    .ad-section {
+      margin-top: 15px;
+      padding: 10px;
+      background: #333;
+      text-align: center;
+      border-radius: 6px;
+    }
+    .ad-section a {
+      color: #ffcc00;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -79,12 +104,21 @@
     <p id="quote"></p>
   </header>
 
+  <!-- Site visit bar using image only -->
+  <div id="visit-bar">
+    <img src="https://visit-counter.vercel.app/counter.png?page=giggityfiles.github.io&s=40&c=00ff00&bg=000000&no=2&ff=digii&tb=We+have+&ta=+Visits" 
+         alt="Visitor Counter">
+  </div>
+
   <div class="breadcrumbs" id="breadcrumbs"></div>
   <div id="repos"></div>
   <div id="files"></div>
 
   <footer>
     Note: Some Windows applications might not work on macOS, Android, or Linux without Wine.
+    <div class="ad-section">
+      Advertisement: <a href="https://giggityfiles.github.io/ads" target="_blank">Advertise Us!</a>
+    </div>
   </footer>
 
   <script>
@@ -104,24 +138,23 @@
       "PLANKTON: Dr. Jr."
     ];
 
-    // Random quote function with rare chances
     function randomQuote() {
       let chance = Math.floor(Math.random() * 50000) + 1;
       if (chance === 1) return "PLANKTON: Dr. Jr.";
-      if (chance <= 10) return rareQuotes[Math.floor(Math.random() * (rareQuotes.length - 1))];
+      if (chance <= 10) return rareQuotes[Math.floor(Math.random() * rareQuotes.length)];
       return commonQuotes[Math.floor(Math.random() * commonQuotes.length)];
     }
 
     document.getElementById("quote").innerText = randomQuote();
 
-    // Random chance to apply Roboto font to a random element
+    // Random chance to apply Roboto font
     if (Math.floor(Math.random() * 10000) === 0) {
       let elements = document.querySelectorAll("*");
       let randomElement = elements[Math.floor(Math.random() * elements.length)];
       randomElement.style.fontFamily = "Roboto, sans-serif";
     }
 
-    // Load repo list (excluding main)
+    // Load repo list
     async function loadRepos() {
       try {
         const response = await fetch(API_URL);
@@ -129,8 +162,8 @@
         const repoList = document.getElementById("repos");
         repoList.innerHTML = "<h2>Repositories</h2><ul>" +
           repos
-            .filter(repo => repo.name !== "main" && repo.name !== "giggityfiles.github.io") // HIDE main repo
-            .map(repo => `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
+            .filter(repo => repo.name !== "main" && repo.name !== "giggityfiles.github.io")
+            .map(repo => `<li><img src="https://img.icons8.com/ios-filled/50/000000/folder.png"/><a href="#" onclick="loadFiles('${repo.name}')">${repo.name}</a></li>`)
             .join('') +
           "</ul>";
       } catch (err) {
@@ -138,7 +171,6 @@
       }
     }
 
-    // Load files within a repo
     async function loadFiles(repo, path = "") {
       const filesContainer = document.getElementById("files");
       const breadcrumbs = document.getElementById("breadcrumbs");
@@ -156,14 +188,14 @@
         });
         breadcrumbs.innerHTML = breadcrumbHTML;
 
-        // Files and folders
+        // Files
         filesContainer.innerHTML = "<h2>Files</h2><ul>" +
           files.map(file =>
-            `<li><img src="https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"/>
-            ${file.type === "dir"
-              ? `<a href="#" onclick="loadFiles('${repo}', '${file.path}')">${file.name}</a>`
-              : `<a href="${BASE_URL}${repo}/${file.path}" target="_blank">${file.name}</a> 
-                <button onclick="window.open('${BASE_URL}${repo}/${file.path}')">Download</button>`}
+            `<li><img src="${file.type === "dir" ? 'https://img.icons8.com/ios-filled/50/000000/folder.png' : 'https://img.icons8.com/ios-filled/50/000000/file.png'}"/>
+              ${file.type === "dir"
+                ? `<a href="#" onclick="loadFiles('${repo}', '${file.path}')">${file.name}</a>`
+                : `<a href="${BASE_URL}${repo}/${file.path}" target="_blank">${file.name}</a>
+                   <button onclick="window.open('${BASE_URL}${repo}/${file.path}')">Download</button>`}
             </li>`
           ).join('') +
           "</ul>";

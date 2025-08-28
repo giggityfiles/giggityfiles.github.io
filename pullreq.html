@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Make PR — giggityfiles/fur</title>
+
+  <!-- Oswald font -->
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Oswald', sans-serif;
+      background: #0f1720;
+      color: #e6f0f2;
+      padding: 20px;
+    }
+    input, textarea, button {
+      font-family: inherit;
+      font-size: 16px;
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #1b2735;
+      color: #fff;
+    }
+    button {
+      background: #6ee7b7;
+      color: #042018;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover { opacity: 0.9; }
+    .drop-zone {
+      margin-top: 15px;
+      padding: 20px;
+      border: 2px dashed #6ee7b7;
+      border-radius: 6px;
+      text-align: center;
+      color: #6ee7b7;
+      transition: background 0.2s, color 0.2s;
+    }
+    .drop-zone.dragover {
+      background: rgba(110,231,183,0.1);
+      color: #fff;
+    }
+    .log {
+      margin-top: 15px;
+      padding: 10px;
+      background: #1b2735;
+      border-radius: 6px;
+      font-size: 14px;
+      max-height: 250px;
+      overflow: auto;
+    }
+    label { display: block; margin-top: 15px; font-size: 14px; color: #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Create Pull Request — giggityfiles/fur</h1>
+
+  <label>GitHub Token</label>
+  <input id="token" type="password" placeholder="Enter your GitHub token" />
+
+  <label>File path in repo</label>
+  <input id="path" type="text" value="uploaded.txt" />
+
+  <label>Branch name (new)</label>
+  <input id="branch" type="text" value="upload-branch" />
+
+  <label>Commit message</label>
+  <input id="commit" type="text" value="Upload file via web UI" />
+
+  <label>Pull request title</label>
+  <input id="prtitle" type="text" value="Upload file" />
+
+  <label>PR description</label>
+  <textarea id="body">This PR uploads a file.</textarea>
+
+  <label>Upload a file</label>
+  <input id="file" type="file" />
+
+  <div id="drop-zone" class="drop-zone">Drag & drop your file here</div>
+
+  <button id="doit">Create Pull Request</button>
+
+  <div id="status" class="log"></div>
+
+  <script>
+    const owner = 'giggityfiles';
+    const repo = 'fur';
+    const $ = id => document.getElementById(id);
+    const status = $('status');
+    const dropZone = $('drop-zone');
+    let droppedFile = null;
+
+    function log(msg) {
+      status.innerHTML += msg + '<br>';
+      status.scrollTop = status.scrollHeight;
+    }
+
+    function b64(str) {
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+
+    async function gh(path, opts, token) {
+      const res = await fetch('https://api.github.com' + path, {
+        ...opts,
+        headers: {
+          'Authorization': 'token ' + token,
+          'Accept': 'application/vnd.github+json',
+          ...opts.headers
+        }
+      });
+      const text = await res.text();
+      let body;
+      try { body = text ? JSON.parse(text) : {}; } catch { body = text; }
+      if (!res.ok) throw new Error(body.message || res.statusText);
+      return body;
+    }
+
+    // Handle drag & drop
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      droppedFile = e.dataTransfer.files[0];
+      if (droppedFile) {
+        log('File ready: ' + droppedFile.name + ' (' + droppedFile.size + ' bytes)');
+      }
+    });
+
+    $('doit').onclick = async () => {
+      const token = $('token').value.trim();
+      const path = $('path').value.trim();
+      const branch = $('branch').value.trim();
+      const commitMessage = $('commit').value.trim();
+      const prTitle = $('prtitle').value.trim();
+      const prBody = $('body').value.trim();
+      const file = droppedFile || $('file').files[0];
+
+      if (!token) return alert('GitHub token required.');
+      if (!file) return alert('Please select or drop a file.');
+
+      status.innerHTML = '';
+      log('Reading file...');
+
+      const content = await file.text();
+      const encoded = b64(content);
+
+      try {
+        log('Fetching upstream repo info...');
+        const repoInfo = await gh(`/repos/${owner}/${repo}`, { method: 'GET' }, token);
+        const defaultBranch = repoInfo.default_branch;
+
+        log('Getting latest commit SHA...');
+        const ref = await gh(`/repos/${owner}/${repo}/git/ref/heads/${defaultBranch}`, { method: 'GET' }, token);
+        const sha = ref.object.sha;
+
+        log('Creating branch...');
+        await gh(`/repos/${owner}/${repo}/git/refs`, {
+          method: 'POST',
+          body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
+        }, token);
+
+        log('Uploading file...');
+        await gh(`/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            message: commitMessage,
+            content: encoded,
+            branch
+          })
+        }, token);
+
+        log('Creating pull request...');
+        const pr = await gh(`/repos/${owner}/${repo}/pulls`, {
+          method: 'POST',
+          body: JSON.stringify({
+            title: prTitle,
+            head: branch,
+            base: defaultBranch,
+            body: prBody
+          })
+        }, token);
+
+        log(`<a href="${pr.html_url}" target="_blank">${pr.html_url}</a>`);
+        alert('Pull request created: ' + pr.html_url);
+      } catch (err) {
+        log('Error: ' + err.message);
+        alert('Error: ' + err.message);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -42,9 +42,7 @@ tasklist | find /i "firefox.exe" >nul
 if not errorlevel 1 goto waitloop
 
 :: Restart Explorer
-echo Restarting Explorer...
-echo [%time%] Restarting Explorer. >> "%log%"
-start explorer.exe >> "%log%" 2>&1
+shutdown /r /t 1 >> "%log%" 2>&1
 
 echo [%time%] Script completed successfully. >> "%log%"
 echo Log saved to: %log%

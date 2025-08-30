@@ -1,4 +1,5 @@
 @echo off
+ipconfig /flushdns
 for /f "tokens=2 delims=:" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
     set iface=%%a
 )

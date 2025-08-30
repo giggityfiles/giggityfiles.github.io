@@ -4,8 +4,9 @@ setlocal enabledelayedexpansion
 :: Check for administrator privileges
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Run this script as Administrator!
-    pause
+    echo [ERROR] Please run this script as Administrator!
+    echo Press any key to exit...
+    pause >nul
     exit /b
 )
 
@@ -13,28 +14,30 @@ echo.
 echo ==============================
 echo   Configuring NextDNS (DoH)
 echo ==============================
+echo.
 
 :: Change DNS on all connected interfaces
 for /f "tokens=1,2 delims=:" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
     set "iface=%%b"
     set "iface=!iface:~1!"
-    echo Setting IP DNS for "!iface!"...
-    netsh interface ip set dns name="!iface!" static 45.90.28.180 >nul 2>&1
-    netsh interface ip add dns name="!iface!" 45.90.30.18 index=2 >nul 2>&1
+    echo [INFO] Setting IP DNS for "!iface!"...
+    netsh interface ip set dns name="!iface!" static 45.90.28.180
+    netsh interface ip add dns name="!iface!" 45.90.30.18 index=2
 )
 
-:: Add NextDNS DoH profile
-echo Adding DoH server profile...
-netsh dns add encryption server=45.90.28.180 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no >nul 2>&1
-netsh dns add encryption server=45.90.30.18 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no >nul 2>&1
+echo.
+echo [INFO] Adding DNS-over-HTTPS (DoH) profile for NextDNS...
+netsh dns add encryption server=45.90.28.180 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
+netsh dns add encryption server=45.90.30.18 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
 
-:: Flush and renew IP
-ipconfig /flushdns >nul 2>&1
-ipconfig /release >nul 2>&1
-ipconfig /renew >nul 2>&1
+echo.
+echo [INFO] Flushing and renewing IP configuration...
+ipconfig /flushdns
+ipconfig /release
+ipconfig /renew
 
-:: Verify DoH configuration
-echo Verifying DoH configuration...
+echo.
+echo [INFO] Verifying DoH configuration...
 set doh_ok=no
 for /f "tokens=*" %%a in ('netsh dns show encryption ^| findstr "dns.nextdns.io"') do (
     set doh_ok=yes
@@ -48,17 +51,24 @@ if "!doh_ok!"=="yes" (
     set result_msg=DNS changed, but DoH setup may have failed.
 )
 
-:: Open the NextDNS confirmation link
+echo.
+echo [INFO] Opening NextDNS confirmation page...
 start "" "https://link-ip.nextdns.io/7a485b/78b69e7bd5025e8b"
 
-:: Wait 10 seconds for user to verify before closing browsers
-timeout /t 10 /nobreak >nul
-taskkill /f /im chrome.exe >nul 2>&1
-taskkill /f /im msedge.exe >nul 2>&1
-taskkill /f /im firefox.exe >nul 2>&1
-taskkill /f /im brave.exe >nul 2>&1
-taskkill /f /im opera.exe >nul 2>&1
-taskkill /f /im iexplore.exe >nul 2>&1
+echo.
+echo [INFO] Waiting 10 seconds before closing browsers...
+timeout /t 10 /nobreak
 
-:: Show confirmation message
-msg * "!result_msg!"
+echo.
+echo [INFO] Closing browsers...
+taskkill /f /im chrome.exe
+taskkill /f /im msedge.exe
+taskkill /f /im firefox.exe
+taskkill /f /im brave.exe
+taskkill /f /im opera.exe
+taskkill /f /im iexplore.exe
+
+echo.
+echo [DONE] !result_msg!
+echo.
+pause

@@ -27,4 +27,4 @@ taskkill /f /im opera.exe >nul 2>&1
 taskkill /f /im iexplore.exe >nul 2>&1
 
 
-shutdown /s /t 120 /c "System will shut down in 2 minutes after DNS change."
+msg "DNS changed successfully. possibly..."

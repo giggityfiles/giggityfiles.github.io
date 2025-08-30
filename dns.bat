@@ -5,8 +5,7 @@ setlocal enabledelayedexpansion
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Please run this script as Administrator!
-    echo Press any key to exit...
-    pause >nul
+    pause
     exit /b
 )
 
@@ -20,24 +19,27 @@ echo.
 for /f "tokens=1,2 delims=:" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
     set "iface=%%b"
     set "iface=!iface:~1!"
-    echo [INFO] Setting IP DNS for "!iface!"...
+    echo Setting IP DNS for "!iface!"...
     netsh interface ip set dns name="!iface!" static 45.90.28.180
     netsh interface ip add dns name="!iface!" 45.90.30.18 index=2
 )
 
+:: Configure DNS-over-HTTPS (DoH)
 echo.
-echo [INFO] Adding DNS-over-HTTPS (DoH) profile for NextDNS...
+echo Configuring DNS-over-HTTPS (DoH) for NextDNS...
 netsh dns add encryption server=45.90.28.180 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
 netsh dns add encryption server=45.90.30.18 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
 
+:: Flush, release, and renew IP
 echo.
-echo [INFO] Flushing and renewing IP configuration...
+echo Flushing and renewing IP...
 ipconfig /flushdns
 ipconfig /release
 ipconfig /renew
 
+:: Verify DoH configuration
 echo.
-echo [INFO] Verifying DoH configuration...
+echo Verifying DoH setup...
 set doh_ok=no
 for /f "tokens=*" %%a in ('netsh dns show encryption ^| findstr "dns.nextdns.io"') do (
     set doh_ok=yes
@@ -51,23 +53,27 @@ if "!doh_ok!"=="yes" (
     set result_msg=DNS changed, but DoH setup may have failed.
 )
 
+:: Open the NextDNS confirmation page
 echo.
-echo [INFO] Opening NextDNS confirmation page...
+echo Opening confirmation page...
 start "" "https://link-ip.nextdns.io/7a485b/78b69e7bd5025e8b"
 
+:: Wait 10 seconds before closing browsers
 echo.
-echo [INFO] Waiting 10 seconds before closing browsers...
+echo Waiting 10 seconds before closing browsers...
 timeout /t 10 /nobreak
 
+:: Close browsers silently
 echo.
-echo [INFO] Closing browsers...
-taskkill /f /im chrome.exe
-taskkill /f /im msedge.exe
-taskkill /f /im firefox.exe
-taskkill /f /im brave.exe
-taskkill /f /im opera.exe
-taskkill /f /im iexplore.exe
+echo Closing browsers...
+taskkill /f /im chrome.exe >nul 2>&1
+taskkill /f /im msedge.exe >nul 2>&1
+taskkill /f /im firefox.exe >nul 2>&1
+taskkill /f /im brave.exe >nul 2>&1
+taskkill /f /im opera.exe >nul 2>&1
+taskkill /f /im iexplore.exe >nul 2>&1
 
+:: Final message
 echo.
 echo [DONE] !result_msg!
 echo.

@@ -1,1 +1,5 @@
 https://dns.nextdns.io/7a485b
+
+
+first dns: 45.90.28.180
+second dns: 45.90.30.180

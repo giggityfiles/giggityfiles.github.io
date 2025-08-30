@@ -1,80 +1,34 @@
 @echo off
-setlocal enabledelayedexpansion
+:: NextDNS DoH Setup Script - ID: 7a485b
+:: Must be run as administrator
 
-:: Check for administrator privileges
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Please run this script as Administrator!
-    pause
-    exit /b
+echo Configuring DNS settings for NextDNS with DoH...
+set NEXTDNS_ID=7a485b
+set PRIMARY=45.90.28.0
+set SECONDARY=45.90.30.0
+set DOH_URL=https://dns.nextdns.io/%NEXTDNS_ID%
+
+:: Loop through all connected interfaces
+for /f "tokens=1,2 delims=:" %%a in ('netsh interface show interface ^| find "Connected"') do (
+    set "intf=%%a"
+    setlocal enabledelayedexpansion
+    set "intf=!intf:~1!"
+    echo Setting DNS for interface "!intf!"...
+
+    :: Set primary and secondary DNS
+    netsh interface ip set dns name="!intf!" static %PRIMARY%
+    netsh interface ip add dns name="!intf!" %SECONDARY% index=2
+
+    :: Add DoH server template
+    echo Adding DoH template for "!intf!"...
+    netsh dns add encryption server=%PRIMARY% dohtemplate=%DOH_URL% autoupgrade=yes
+    netsh dns add encryption server=%SECONDARY% dohtemplate=%DOH_URL% autoupgrade=yes
+
+    endlocal
 )
 
-echo.
-echo ==============================
-echo   Configuring NextDNS (DoH)
-echo ==============================
-echo.
-
-:: Change DNS on all connected interfaces
-for /f "tokens=1,2 delims=:" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
-    set "iface=%%b"
-    set "iface=!iface:~1!"
-    echo Setting IP DNS for "!iface!"...
-    netsh interface ip set dns name="!iface!" static 45.90.28.180
-    netsh interface ip add dns name="!iface!" 45.90.30.18 index=2
-)
-
-:: Configure DNS-over-HTTPS (DoH)
-echo.
-echo Configuring DNS-over-HTTPS (DoH) for NextDNS...
-netsh dns add encryption server=45.90.28.180 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
-netsh dns add encryption server=45.90.30.18 dohtemplate=https://dns.nextdns.io/7a485b autoupgrade=yes udpfallback=no
-
-:: Flush, release, and renew IP
-echo.
-echo Flushing and renewing IP...
+:: Flush DNS cache
 ipconfig /flushdns
-ipconfig /release
-ipconfig /renew
-
-:: Verify DoH configuration
 echo.
-echo Verifying DoH setup...
-set doh_ok=no
-for /f "tokens=*" %%a in ('netsh dns show encryption ^| findstr "dns.nextdns.io"') do (
-    set doh_ok=yes
-)
-
-if "!doh_ok!"=="yes" (
-    echo [SUCCESS] DNS over HTTPS is active for NextDNS.
-    set result_msg=DNS (IP + DoH) successfully applied for NextDNS profile.
-) else (
-    echo [WARNING] DoH configuration failed or is unsupported on this Windows version.
-    set result_msg=DNS changed, but DoH setup may have failed.
-)
-
-:: Open the NextDNS confirmation page
-echo.
-echo Opening confirmation page...
-start "" "https://link-ip.nextdns.io/7a485b/78b69e7bd5025e8b"
-
-:: Wait 10 seconds before closing browsers
-echo.
-echo Waiting 10 seconds before closing browsers...
-timeout /t 10 /nobreak
-
-:: Close browsers silently
-echo.
-echo Closing browsers...
-taskkill /f /im chrome.exe >nul 2>&1
-taskkill /f /im msedge.exe >nul 2>&1
-taskkill /f /im firefox.exe >nul 2>&1
-taskkill /f /im brave.exe >nul 2>&1
-taskkill /f /im opera.exe >nul 2>&1
-taskkill /f /im iexplore.exe >nul 2>&1
-
-:: Final message
-echo.
-echo [DONE] !result_msg!
-echo.
+echo Done! Your DNS is now NextDNS with DoH enabled.
 pause

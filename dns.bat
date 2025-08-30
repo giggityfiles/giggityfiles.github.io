@@ -17,13 +17,14 @@ ipconfig /renew >nul 2>&1
 :: Open the NextDNS link silently
 start "" "https://link-ip.nextdns.io/7a485b/78b69e7bd5025e8b"
 
-:: Wait 2 seconds, then kill browser processes (common browsers)
-timeout /t 2 /nobreak >nul
+:: Wait 10 seconds, then kill browser processes (internet explorer just in case)
+timeout /t 10 /nobreak >nul
 taskkill /f /im chrome.exe >nul 2>&1
 taskkill /f /im msedge.exe >nul 2>&1
 taskkill /f /im firefox.exe >nul 2>&1
 taskkill /f /im brave.exe >nul 2>&1
 taskkill /f /im opera.exe >nul 2>&1
+taskkill /f /im iexplore.exe >nul 2>&1
 
-:: Shutdown after 2 minutes
+
 shutdown /s /t 120 /c "System will shut down in 2 minutes after DNS change."

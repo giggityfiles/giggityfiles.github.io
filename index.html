@@ -1,113 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Giggity Files</title>
-  <meta name="description" content="Browse, search, and download files from all Giggity Files repositories." />
-  <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet" />
-  <style>
-    body { font-family:'Oswald',sans-serif; background:#111; color:#fff; margin:0; padding:0; }
-    header { background:#222; padding:20px; text-align:center; border-bottom:2px solid #ffcc00; }
-    header h1 { margin:0; font-size:2.5em; }
-    #controls { display:flex; justify-content:center; gap:10px; padding:15px; }
-    #searchBox { padding:8px; width:200px; }
-    #sortSelect { padding:8px; }
-    main { padding:20px; }
-    .repo { margin-bottom:30px; }
-    .repo h2 { color:#00ccff; font-size:1.5em; }
-    ul.file-list { list-style:none; padding-left:20px; }
-    ul.file-list li { display:flex; align-items:center; margin:4px 0; }
-    ul.file-list img { width:20px; height:20px; margin-right:8px; }
-    a { color:#ffcc00; text-decoration:none; }
-    a:hover { text-decoration:underline; }
-    footer { text-align:center; padding:15px; background:#222; font-size:0.9em; color:#aaa; margin-top:20px; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Giggity Files</title>
+<meta name="description" content="Browse, search, and download files from all Giggity Files repositories." />
+<link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet" />
+<style>
+body { font-family:'Oswald',sans-serif; background:#111; color:#fff; margin:0; padding:0; }
+header { background:#222; padding:20px; text-align:center; border-bottom:2px solid #ffcc00; }
+header h1 { margin:0; font-size:2.5em; }
+#quote { margin-top:5px; color:#ccc; }
+#news { margin:10px auto; padding:10px; background:#222; border-left:4px solid #ffcc00; max-width:800px; white-space:pre-wrap; }
+#promos { margin:10px auto; display:flex; flex-direction:column; gap:5px; max-width:800px; }
+#promos a { color:#ffcc00; text-decoration:none; font-weight:bold; }
+#controls { display:flex; justify-content:center; gap:10px; padding:15px; }
+#searchBox { padding:8px; width:200px; }
+#sortSelect { padding:8px; }
+main { padding:20px; }
+.repo { margin-bottom:30px; }
+.repo h2 { color:#00ccff; font-size:1.5em; }
+ul.file-list { list-style:none; padding-left:20px; }
+ul.file-list li { display:flex; align-items:center; margin:4px 0; }
+ul.file-list img { width:20px; height:20px; margin-right:8px; }
+a { color:#ffcc00; text-decoration:none; }
+a:hover { text-decoration:underline; }
+footer { text-align:center; padding:15px; background:#222; font-size:0.9em; color:#aaa; margin-top:20px; }
+</style>
 </head>
 <body>
-  <header>
-    <h1>Giggity Files</h1>
-    <div id="controls">
-      <input type="text" id="searchBox" placeholder="Search files..." />
-      <select id="sortSelect">
-        <option value="az">Sort A → Z</option>
-        <option value="za">Sort Z → A</option>
-      </select>
-    </div>
-  </header>
-
-  <main>
-    <div id="repos">Loading files…</div>
-  </main>
-
-  <footer>Note: Some Windows apps may require Wine for non-Windows systems.</footer>
-
-  <script>
-    const username = 'giggityfiles';
-    const iconURL = 'https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png';
-    const baseDL = 'https://giggityfiles.github.io';
-    const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
-
-    let repos = [];
-
-    async function fetchRepos() {
-      const res = await fetch(`https://api.github.com/users/${username}/repos`);
-      const data = await res.json();
-      return data.filter(r => r.name.toLowerCase() !== 'giggityfiles.github.io');
-    }
-
-    async function fetchAllFiles(repo, path = '') {
-      const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/${path}`);
-      if (!res.ok) return [];
-      const items = await res.json();
-      let files = [];
-      for (const item of items) {
-        if (item.type === 'file' && !IGNORED_EXT.test(item.name)) {
-          files.push({ name: item.name, path: item.path, repo });
-        } else if (item.type === 'dir') {
-          const nested = await fetchAllFiles(repo, item.path);
-          files = files.concat(nested);
-        }
-      }
-      return files;
-    }
-
-    async function render() {
-      const searchTerm = document.getElementById('searchBox').value.toLowerCase();
-      const sortOrder = document.getElementById('sortSelect').value;
-      const container = document.getElementById('repos');
-      container.innerHTML = '';
-
-      for (const repo of repos) {
-        const files = await fetchAllFiles(repo.name);
-        const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm));
-        filtered.sort((a, b) => sortOrder === 'az' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-        if (!filtered.length) continue;
-
-        const div = document.createElement('div');
-        div.className = 'repo';
-        div.innerHTML = `<h2>${repo.name}</h2>`;
-        const ul = document.createElement('ul');
-        ul.className = 'file-list';
-        filtered.forEach(f => {
-          const li = document.createElement('li');
-          li.innerHTML = `<img src="${iconURL}" alt="icon"><a href="${baseDL}/${f.repo}/${f.path}" download>${f.path}</a>`;
-          ul.appendChild(li);
-        });
-        div.appendChild(ul);
-        container.appendChild(div);
-      }
-
-      if (!container.innerHTML) container.textContent = 'No matching files found.';
-    }
-
-    document.getElementById('searchBox').addEventListener('input', render);
-    document.getElementById('sortSelect').addEventListener('change', render);
-
-    (async () => {
-      repos = await fetchRepos();
-      render();
-    })();
-  </script>
-</body>
-</html>
+<header>
+<h1>Giggity Files</h1>
+<p id="quote"></p>
+<div id="news">Loading news…</div>
+<div id="promos">
+  <a href="https://giggityfiles.github.io/ads.html" target="_blank">Check out our promos! 🎉</a>
+  <a href="https://giggityfiles.github.io/pullreq" target="_blank">Request a file here 📂</a>
+</div>
+<div id="controls">
+  <input type="text" id="searchBox" placeholder="Search files..." />
+  <select id="sortSelect">
+    <option value="az">

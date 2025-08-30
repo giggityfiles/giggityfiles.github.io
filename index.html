@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="title" content="Giggity Files">
-  <meta name="description" content="Browse and download files directly from Giggity Files with subfolder support and easy navigation.">
   <title>Giggity Files</title>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+  <meta name="description" content="Browse and download files from Giggity Files' GitHub repositories.">
+  <link rel="icon" href="https://giggityfiles.github.io/favicon.ico" type="image/x-icon">
   <style>
     body {
       font-family: 'Oswald', sans-serif;
@@ -40,27 +39,40 @@
     main {
       padding: 20px;
     }
-    #file-list {
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    input, select {
+      padding: 5px;
+      font-size: 1em;
+    }
+    .repo-list {
       list-style: none;
       padding: 0;
     }
-    #file-list li {
+    .repo-item {
       background: #222;
+      margin: 10px 0;
       padding: 10px;
-      margin: 5px 0;
+      border-radius: 5px;
       display: flex;
       align-items: center;
       gap: 10px;
-      border-radius: 5px;
     }
-    #file-list img {
-      width: 24px;
-      height: 24px;
+    .repo-item img {
+      width: 32px;
+      height: 32px;
     }
-    #path {
-      font-size: 1em;
-      margin-bottom: 15px;
+    .repo-item a {
       color: #ffcc00;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .repo-item a:hover {
+      text-decoration: underline;
     }
     footer {
       text-align: center;
@@ -70,13 +82,6 @@
       color: #aaa;
       margin-top: 20px;
     }
-    a {
-      color: #ffcc00;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
@@ -85,21 +90,20 @@
     <p id="quote"></p>
     <div id="news"></div>
     <div style="margin-top:10px; display:flex; flex-direction:column; gap:5px; align-items:center;">
-      <a href="https://giggityfiles.github.io/ads.html" target="_blank" style="color:#ffcc00; font-weight:bold;">
-        Check out our promos! 🎉
-      </a>
-      <a href="https://giggityfiles.github.io/pullreq" target="_blank" style="color:#00ccff; font-weight:bold;">
-        Request a file here 📂
-      </a>
+      <a href="https://giggityfiles.github.io/ads.html" target="_blank">Check out our promos! 🎉</a>
+      <a href="https://giggityfiles.github.io/pullreq" target="_blank">Request a file here 📂</a>
     </div>
   </header>
 
   <main>
-    <h2>Available Files</h2>
-    <div id="path"></div>
-    <ul id="file-list">
-      <li>Loading files...</li>
-    </ul>
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search repositories...">
+      <select id="sort">
+        <option value="az">Sort A-Z</option>
+        <option value="za">Sort Z-A</option>
+      </select>
+    </div>
+    <ul id="repo-list" class="repo-list"></ul>
   </main>
 
   <footer>
@@ -107,10 +111,12 @@
   </footer>
 
   <script>
-    const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
-    const baseDownload = "https://giggityfiles.github.io/";
-
-    let currentPath = "";
+    const username = "giggityfiles";
+    const apiURL = `https://api.github.com/users/${username}/repos`;
+    const repoList = document.getElementById("repo-list");
+    const searchInput = document.getElementById("search");
+    const sortSelect = document.getElementById("sort");
+    let repos = [];
 
     // Random quotes
     const quotes = [
@@ -133,54 +139,51 @@
         newsContainer.innerText = "Failed to load news.";
       }
     }
-    loadNews();
 
-    // Load file structure with folder navigation
-    async function loadFiles(path = "") {
-      currentPath = path;
-      const list = document.getElementById("file-list");
-      const pathDisplay = document.getElementById("path");
-      pathDisplay.innerHTML = `Path: /${path || ""}`;
+    // Fetch repos from API
+    async function loadRepos() {
       try {
-        const apiURL = `https://api.github.com/repos/GiggityFiles/GiggityFiles/contents/${path}`;
         const response = await fetch(apiURL);
-        if (!response.ok) throw new Error("GitHub API error");
-        const files = await response.json();
-        list.innerHTML = "";
-
-        if (path) {
-          const upPath = path.split("/").slice(0, -1).join("/");
-          const back = document.createElement("li");
-          back.innerHTML = `
-            <img src="${iconURL}" alt="icon">
-            <a href="#" onclick="loadFiles('${upPath}')">🔙 Go Back</a>
-          `;
-          list.appendChild(back);
-        }
-
-        files.forEach(file => {
-          const li = document.createElement("li");
-          if (file.type === "dir") {
-            li.innerHTML = `
-              <img src="${iconURL}" alt="icon">
-              <a href="#" onclick="loadFiles('${file.path}')">${file.name}/</a>
-            `;
-          } else {
-            const downloadURL = baseDownload + file.path;
-            li.innerHTML = `
-              <img src="${iconURL}" alt="icon">
-              <a href="${downloadURL}" download target="_blank">${file.name}</a>
-            `;
-          }
-          list.appendChild(li);
-        });
-      } catch (err) {
-        list.innerHTML = "<li>Failed to load files.</li>";
+        const data = await response.json();
+        repos = data
+          .filter(repo => repo.name.toLowerCase() !== "giggityfiles.github.io")
+          .map(repo => ({
+            name: repo.name,
+            url: `https://giggityfiles.github.io/${repo.name}`,
+            icon: "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png"
+          }));
+        renderRepos();
+      } catch {
+        repoList.innerHTML = "<li>Failed to load repositories.</li>";
       }
     }
 
-    // Initialize file list
-    loadFiles();
+    function renderRepos() {
+      const searchTerm = searchInput.value.toLowerCase();
+      const sortedRepos = [...repos].sort((a, b) => {
+        if (sortSelect.value === "az") return a.name.localeCompare(b.name);
+        if (sortSelect.value === "za") return b.name.localeCompare(a.name);
+      });
+
+      repoList.innerHTML = "";
+      sortedRepos
+        .filter(repo => repo.name.toLowerCase().includes(searchTerm))
+        .forEach(repo => {
+          const li = document.createElement("li");
+          li.className = "repo-item";
+          li.innerHTML = `
+            <img src="${repo.icon}" alt="icon">
+            <a href="${repo.url}" target="_blank">${repo.name}</a>
+          `;
+          repoList.appendChild(li);
+        });
+    }
+
+    searchInput.addEventListener("input", renderRepos);
+    sortSelect.addEventListener("change", renderRepos);
+
+    loadNews();
+    loadRepos();
   </script>
 </body>
 </html>

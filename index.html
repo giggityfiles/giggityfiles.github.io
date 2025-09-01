@@ -66,13 +66,11 @@ const iconURL = 'https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png';
 const baseDL = 'https://giggityfiles.github.io';
 const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
 
-// === Configuration ===
-const bannedIPs = ["123.45.67.89", "98.76.54.32"]; // Add IPv4 addresses here
 let showIP = localStorage.getItem('showIP') !== 'false';
 let repos = [];
 const fileCache = {};
 
-// === Random quote ===
+// Random quote
 const quotes = [
   "Giggity giggity goo!",
   "Stay updated with Giggity Files.",
@@ -81,12 +79,11 @@ const quotes = [
 ];
 document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
 
-// === Sanitize HTML for news ===
+// Sanitize HTML for news
 function sanitizeHTML(input) {
   const allowedTags = ['b', 'i', 'u', 'a', 'br', 'strong', 'em', 'p', 'ul', 'ol', 'li', 'marquee'];
   const div = document.createElement('div');
   div.innerHTML = input;
-
   const sanitizeNode = node => {
     if (node.nodeType === 1) {
       if (!allowedTags.includes(node.tagName.toLowerCase())) {
@@ -104,29 +101,29 @@ function sanitizeHTML(input) {
   return div.innerHTML;
 }
 
-// === Load news ===
+// Load news
 async function loadNews() {
   const newsDiv = document.getElementById('news');
   try {
     const res = await fetch('https://giggityfiles.github.io/news.txt');
     let text = await res.text();
-    text = sanitizeHTML(text);
-    newsDiv.innerHTML = `<strong>News:</strong><br>${text}`;
+    newsDiv.innerHTML = `<strong>News:</strong><br>${sanitizeHTML(text)}`;
   } catch {
     newsDiv.innerText = "Failed to load news.";
   }
 }
 
-// === Load IPv4 and check bans ===
+// Get IP and check bans
 async function loadIP() {
   const ipDisplay = document.getElementById('ipDisplay');
   try {
-    // Use a service that forces IPv4
     const res = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    const ip = data.ip;
+    const { ip } = await res.json();
 
-    // Check bans
+    // Load ban list dynamically
+    const bansResponse = await fetch('https://giggityfiles.github.io/bans.json');
+    const bannedIPs = await bansResponse.json();
+
     if (bannedIPs.includes(ip)) {
       window.location.href = 'https://slimetube.github.io';
       return;
@@ -138,21 +135,21 @@ async function loadIP() {
   }
 }
 
-// === Toggle IP visibility ===
+// Toggle IP visibility
 document.getElementById('toggleIP').addEventListener('click', () => {
   showIP = !showIP;
   localStorage.setItem('showIP', showIP);
   loadIP();
 });
 
-// === Fetch repos ===
+// Fetch repos
 async function fetchRepos() {
   const res = await fetch(`https://api.github.com/users/${username}/repos`);
   const data = await res.json();
   return data.filter(r => r.name.toLowerCase() !== 'giggityfiles.github.io');
 }
 
-// === Recursive file fetch with caching ===
+// Recursive file fetch with caching
 async function fetchAllFiles(repo, path = '') {
   const cacheKey = `${repo}/${path}`;
   if (fileCache[cacheKey]) return fileCache[cacheKey];
@@ -172,7 +169,7 @@ async function fetchAllFiles(repo, path = '') {
   return files;
 }
 
-// === Render repositories ===
+// Render repositories
 async function render() {
   const searchTerm = document.getElementById('searchBox').value.toLowerCase();
   const sortOrder = document.getElementById('sortSelect').value;
@@ -195,7 +192,7 @@ async function render() {
   container.innerHTML = content || 'No matching files found.';
 }
 
-// === Initialize ===
+// Initialize
 document.getElementById('searchBox').addEventListener('input', render);
 document.getElementById('sortSelect').addEventListener('change', render);
 

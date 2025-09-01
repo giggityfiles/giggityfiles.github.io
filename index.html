@@ -67,6 +67,7 @@ const baseDL = 'https://giggityfiles.github.io';
 const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
 
 let showIP = localStorage.getItem('showIP') !== 'false';
+let userIP = null;
 let repos = [];
 const fileCache = {};
 
@@ -106,40 +107,49 @@ async function loadNews() {
   const newsDiv = document.getElementById('news');
   try {
     const res = await fetch('https://giggityfiles.github.io/news.txt');
-    let text = await res.text();
+    const text = await res.text();
     newsDiv.innerHTML = `<strong>News:</strong><br>${sanitizeHTML(text)}`;
   } catch {
     newsDiv.innerText = "Failed to load news.";
   }
 }
 
-// Get IP and check bans
-async function loadIP() {
-  const ipDisplay = document.getElementById('ipDisplay');
+// Load user IPv4
+async function fetchIPv4() {
   try {
     const res = await fetch('https://api.ipify.org?format=json');
-    const { ip } = await res.json();
-
-    // Load ban list dynamically
-    const bansResponse = await fetch('https://giggityfiles.github.io/bans.json');
-    const bannedIPs = await bansResponse.json();
-
-    if (bannedIPs.includes(ip)) {
-      window.location.href = 'https://slimetube.github.io';
-      return;
-    }
-
-    ipDisplay.innerText = showIP ? `Your IP: ${ip}` : 'IP hidden';
+    const data = await res.json();
+    return data.ip;
   } catch {
-    ipDisplay.innerText = 'Unable to fetch IP';
+    return null;
   }
+}
+
+// Check bans dynamically
+async function checkBans() {
+  if (!userIP) return;
+  try {
+    const res = await fetch('https://giggityfiles.github.io/bans.json');
+    const bannedIPs = await res.json();
+    if (bannedIPs.includes(userIP)) {
+      window.location.href = 'https://slimetube.github.io';
+    }
+  } catch {
+    console.warn('Failed to fetch bans');
+  }
+}
+
+// Display IP
+function displayIP() {
+  const ipDisplay = document.getElementById('ipDisplay');
+  ipDisplay.innerText = showIP ? `Your IP: ${userIP}` : 'IP hidden';
 }
 
 // Toggle IP visibility
 document.getElementById('toggleIP').addEventListener('click', () => {
   showIP = !showIP;
   localStorage.setItem('showIP', showIP);
-  loadIP();
+  displayIP();
 });
 
 // Fetch repos
@@ -181,8 +191,8 @@ async function render() {
     const files = await fetchAllFiles(repo.name);
     const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm));
     filtered.sort((a, b) => sortOrder === 'az' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-
     if (!filtered.length) continue;
+
     content += `<div class="repo"><h2>${repo.name}</h2><ul class="file-list">`;
     filtered.forEach(f => {
       content += `<li><img src="${iconURL}" alt="icon"><a href="${baseDL}/${f.repo}/${f.path}" download>${f.path}</a></li>`;
@@ -193,15 +203,19 @@ async function render() {
 }
 
 // Initialize
-document.getElementById('searchBox').addEventListener('input', render);
-document.getElementById('sortSelect').addEventListener('change', render);
-
 (async () => {
-  await loadIP();
+  userIP = await fetchIPv4();
+  displayIP();
+  await checkBans();        // Initial ban check
+  setInterval(checkBans, 60000); // Refresh ban list every 60 seconds
+
   repos = await fetchRepos();
   loadNews();
   render();
 })();
+
+document.getElementById('searchBox').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', render);
 </script>
 </body>
 </html>

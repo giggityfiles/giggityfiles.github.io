@@ -67,8 +67,8 @@ const baseDL = 'https://giggityfiles.github.io';
 const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
 
 // === Configuration ===
-const bannedIPs = ["123.45.67.89", "98.76.54.32"]; // Add IPs here to ban
-let showIP = localStorage.getItem('showIP') !== 'false'; // Toggle state persists
+const bannedIPs = ["123.45.67.89", "98.76.54.32"]; // Add IPv4 addresses here
+let showIP = localStorage.getItem('showIP') !== 'false';
 let repos = [];
 const fileCache = {};
 
@@ -117,15 +117,16 @@ async function loadNews() {
   }
 }
 
-// === Load IP ===
+// === Load IPv4 and check bans ===
 async function loadIP() {
   const ipDisplay = document.getElementById('ipDisplay');
   try {
-    const res = await fetch('https://api64.ipify.org?format=json');
+    // Use a service that forces IPv4
+    const res = await fetch('https://api.ipify.org?format=json');
     const data = await res.json();
     const ip = data.ip;
 
-    // Ban check
+    // Check bans
     if (bannedIPs.includes(ip)) {
       window.location.href = 'https://slimetube.github.io';
       return;
@@ -144,7 +145,7 @@ document.getElementById('toggleIP').addEventListener('click', () => {
   loadIP();
 });
 
-// === Fetch Repos ===
+// === Fetch repos ===
 async function fetchRepos() {
   const res = await fetch(`https://api.github.com/users/${username}/repos`);
   const data = await res.json();
@@ -194,11 +195,10 @@ async function render() {
   container.innerHTML = content || 'No matching files found.';
 }
 
-// === Event listeners ===
+// === Initialize ===
 document.getElementById('searchBox').addEventListener('input', render);
 document.getElementById('sortSelect').addEventListener('change', render);
 
-// === Initialize ===
 (async () => {
   await loadIP();
   repos = await fetchRepos();

@@ -132,7 +132,7 @@ async function checkBans() {
     const res = await fetch('https://giggityfiles.github.io/bans.json');
     const bannedIPs = await res.json();
     if (bannedIPs.includes(userIP)) {
-      window.location.href = 'https://slimetube.github.io';
+      window.location.href = 'https://giggityfiles.github.io/blocked';
     }
   } catch {
     console.warn('Failed to fetch bans');

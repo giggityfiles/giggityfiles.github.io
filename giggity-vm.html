@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GiggityVM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html,body {height:100%;margin:0;background:#111;color:#ddd;font-family:sans-serif}
+    header {padding:10px 14px;border-bottom:1px solid #2a2a2a;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    header h1 {font-size:16px;margin:0;color:#fff;font-weight:600}
+    #screen {display:flex;justify-content:center;align-items:center;height:calc(100% - 60px);padding:8px}
+    #screen canvas {image-rendering:pixelated;max-width:100%;max-height:100%;background:#000;outline:1px solid #333}
+    button {background:#1b1b1b;border:1px solid #333;color:#eee;padding:6px 10px;border-radius:6px;cursor:pointer}
+    button:disabled {opacity:.6;cursor:not-allowed}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/v86@0.5.242/build/libv86.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>GiggityVM</h1>
+    <button id="startBtn">Start</button>
+    <button id="resetBtn" disabled>Reset</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="fsBtn" disabled>Fullscreen</button>
+    <button id="cadBtn" disabled>Ctrl+Alt+Del</button>
+    <button id="pasteBtn" disabled>Paste</button>
+    <button id="saveBtn" disabled>Save State</button>
+    <button id="loadBtn" disabled>Load State</button>
+    <button id="clearBtn" disabled>Clear Auto-Save</button>
+    <input type="file" id="stateFile" style="display:none" accept=".bin" />
+  </header>
+  <div id="screen"><div id="screen_container"></div></div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const IMG_URL = "https://giggityfiles.github.io/windows2.img";
+      const CDN_BASE = "https://cdn.jsdelivr.net/npm/v86@0.5.242";
+      const AUTO_KEY = "windows2_auto_state";
+
+      let emu = null;
+      let autoSaveInterval = null;
+
+      const $ = id => document.getElementById(id);
+      const startBtn = $("startBtn"),
+            stopBtn = $("stopBtn"),
+            resetBtn = $("resetBtn"),
+            fsBtn = $("fsBtn"),
+            cadBtn = $("cadBtn"),
+            pasteBtn = $("pasteBtn"),
+            saveBtn = $("saveBtn"),
+            loadBtn = $("loadBtn"),
+            clearBtn = $("clearBtn"),
+            stateFile = $("stateFile");
+
+      function setUI(running){
+        startBtn.disabled = running;
+        stopBtn.disabled = !running;
+        resetBtn.disabled = !running;
+        fsBtn.disabled = !running;
+        cadBtn.disabled = !running;
+        pasteBtn.disabled = !running;
+        saveBtn.disabled = !running;
+        loadBtn.disabled = !running;
+        clearBtn.disabled = !running;
+      }
+
+      function start(){
+        if(emu){ try{emu.stop();}catch{} emu=null; }
+        setUI(true);
+
+        emu = new V86({
+          wasm_path: `${CDN_BASE}/build/v86.wasm`,
+          bios: { url: `${CDN_BASE}/bios/seabios.bin` },
+          vga_bios: { url: `${CDN_BASE}/bios/vgabios.bin` },
+          screen_container: $("screen_container"),
+          memory_size: 64 * 1024 * 1024,
+          autostart: true,
+          hda: { url: IMG_URL }
+        });
+
+        emu.add_listener("emulator-stopped", () => {
+          setUI(false);
+          if(autoSaveInterval){ clearInterval(autoSaveInterval); autoSaveInterval = null; }
+        });
+
+        // Auto-load compressed state if present
+        const savedState = localStorage.getItem(AUTO_KEY);
+        if(savedState){
+          try {
+            const binary = Uint8Array.from(LZString.decompressFromBase64(savedState), c => c.charCodeAt(0));
+            emu.add_listener("emulator-ready", () => {
+              emu.restore_state(binary);
+              console.log("Auto-saved state loaded!");
+            });
+          } catch(e){
+            console.error("Failed to load auto-save:", e);
+          }
+        }
+
+        // Auto-save every 30s using compressed data
+        autoSaveInterval = setInterval(() => {
+          if(emu){
+            emu.save_state(state => {
+              try {
+                const str = String.fromCharCode(...new Uint8Array(state));
+                const compressed = LZString.compressToBase64(str);
+                localStorage.setItem(AUTO_KEY, compressed);
+                console.log("Auto-saved compressed state at", new Date().toLocaleTimeString());
+              } catch(e){
+                console.error("Failed to auto-save:", e);
+              }
+            });
+          }
+        }, 30000);
+      }
+
+      // Manual actions
+      startBtn.onclick = start;
+      resetBtn.onclick = () => emu && emu.reset();
+      stopBtn.onclick = () => { if(emu){ emu.stop(); emu=null; setUI(false); } };
+      fsBtn.onclick = () => emu && emu.lock_mouse && emu.lock_mouse();
+      cadBtn.onclick = () => emu && emu.keyboard_send_scancodes && emu.keyboard_send_scancodes([0x1D,0x38,0x53]);
+      pasteBtn.onclick = async () => { if(!emu) return; const txt = prompt("Paste text to type into the VM:"); if(txt) emu.keyboard_send_text(txt); };
+
+      saveBtn.onclick = () => {
+        if(!emu) return;
+        emu.save_state(function(state){
+          const blob = new Blob([state], {type: "application/octet-stream"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "windows2_state.bin";
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      };
+
+      loadBtn.onclick = () => stateFile.click();
+      stateFile.onchange = e => {
+        if(!emu) return;
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(){
+          const buf = new Uint8Array(this.result);
+          emu.restore_state(buf);
+          alert("Manual state loaded!");
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      clearBtn.onclick = () => {
+        localStorage.removeItem(AUTO_KEY);
+        alert("Auto-saved state cleared.");
+      };
+
+      // Auto-start
+      start();
+    });
+  </script>
+</body>
+</html>

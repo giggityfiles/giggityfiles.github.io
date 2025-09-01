@@ -26,6 +26,8 @@ ul.file-list img { width:20px; height:20px; margin-right:8px; }
 a { color:#ffcc00; text-decoration:none; }
 a:hover { text-decoration:underline; }
 footer { text-align:center; padding:15px; background:#222; font-size:0.9em; color:#aaa; margin-top:20px; }
+#ipBox { margin:10px; text-align:center; color:#ffcc00; }
+#toggleIP { margin-left:10px; padding:5px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -38,11 +40,14 @@ footer { text-align:center; padding:15px; background:#222; font-size:0.9em; colo
   <a href="https://giggityfiles.github.io/pullreq" target="_blank">Request a file here 📂</a>
   <a href="https://ggtfiles.blogspot.com" target="_blank">Official Blog</a>
   <a href="https://ggtfiles.fandom.com" target="_blank">Official Fandom Wiki</a>
-  
+</div>
+<div id="ipBox">
+  <span id="ipDisplay">Loading your IP...</span>
+  <button id="toggleIP">Hide IP</button>
 </div>
 <div id="controls">
-  <input type="text" id="searchBox" placeholder="Search files..." />
-  <select id="sortSelect">
+  <input type="text" id="searchBox" placeholder="Search files..." aria-label="Search files" />
+  <select id="sortSelect" aria-label="Sort files">
     <option value="az">Sort A → Z</option>
     <option value="za">Sort Z → A</option>
   </select>
@@ -50,94 +55,153 @@ footer { text-align:center; padding:15px; background:#222; font-size:0.9em; colo
 </header>
 
 <main>
-<div id="repos">Loading files…</div>
+  <div id="repos">Loading files…</div>
 </main>
 
 <footer>Note: Some Windows apps may require Wine for non-Windows systems.</footer>
 
 <script>
-const username='giggityfiles';
-const iconURL='https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png';
-const baseDL='https://giggityfiles.github.io';
-const IGNORED_EXT=/\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
+const username = 'giggityfiles';
+const iconURL = 'https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png';
+const baseDL = 'https://giggityfiles.github.io';
+const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
 
-let repos=[];
+// === Configuration ===
+const bannedIPs = ["123.45.67.89", "98.76.54.32"]; // Add IPs here to ban
+let showIP = localStorage.getItem('showIP') !== 'false'; // Toggle state persists
+let repos = [];
+const fileCache = {};
 
-// random quote
-const quotes=["Giggity giggity goo!","Stay updated with Giggity Files.","Where files meet fun.","Fast. Simple. Giggity."];
-document.getElementById('quote').innerText = quotes[Math.floor(Math.random()*quotes.length)];
+// === Random quote ===
+const quotes = [
+  "Giggity giggity goo!",
+  "Stay updated with Giggity Files.",
+  "Where files meet fun.",
+  "Fast. Simple. Giggity."
+];
+document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
 
-// load news
+// === Sanitize HTML for news ===
+function sanitizeHTML(input) {
+  const allowedTags = ['b', 'i', 'u', 'a', 'br', 'strong', 'em', 'p', 'ul', 'ol', 'li', 'marquee'];
+  const div = document.createElement('div');
+  div.innerHTML = input;
+
+  const sanitizeNode = node => {
+    if (node.nodeType === 1) {
+      if (!allowedTags.includes(node.tagName.toLowerCase())) {
+        node.replaceWith(...Array.from(node.childNodes));
+        return;
+      }
+      if (node.tagName.toLowerCase() === 'a') {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    }
+    node.childNodes.forEach(sanitizeNode);
+  };
+  div.childNodes.forEach(sanitizeNode);
+  return div.innerHTML;
+}
+
+// === Load news ===
 async function loadNews() {
-  const newsDiv=document.getElementById('news');
-  try{
-    const res=await fetch('https://giggityfiles.github.io/news.txt');
-    const text=await res.text();
-    newsDiv.innerHTML="<strong>News:</strong>\n"+text;
-  }catch{
-    newsDiv.innerText="Failed to load news.";
+  const newsDiv = document.getElementById('news');
+  try {
+    const res = await fetch('https://giggityfiles.github.io/news.txt');
+    let text = await res.text();
+    text = sanitizeHTML(text);
+    newsDiv.innerHTML = `<strong>News:</strong><br>${text}`;
+  } catch {
+    newsDiv.innerText = "Failed to load news.";
   }
 }
 
-// fetch repos
-async function fetchRepos() {
-  const res=await fetch(`https://api.github.com/users/${username}/repos`);
-  const data=await res.json();
-  return data.filter(r=>r.name.toLowerCase()!=='giggityfiles.github.io');
+// === Load IP ===
+async function loadIP() {
+  const ipDisplay = document.getElementById('ipDisplay');
+  try {
+    const res = await fetch('https://api64.ipify.org?format=json');
+    const data = await res.json();
+    const ip = data.ip;
+
+    // Ban check
+    if (bannedIPs.includes(ip)) {
+      window.location.href = 'https://slimetube.github.io';
+      return;
+    }
+
+    ipDisplay.innerText = showIP ? `Your IP: ${ip}` : 'IP hidden';
+  } catch {
+    ipDisplay.innerText = 'Unable to fetch IP';
+  }
 }
 
-// recursively get files
-async function fetchAllFiles(repo,path='') {
-  const res=await fetch(`https://api.github.com/repos/${username}/${repo}/contents/${path}`);
-  if(!res.ok)return[];
-  const items=await res.json();
-  let files=[];
-  for(const item of items){
-    if(item.type==='file' && !IGNORED_EXT.test(item.name)){
-      files.push({name:item.name,path:item.path,repo});
-    }else if(item.type==='dir'){
-      const nested=await fetchAllFiles(repo,item.path);
-      files=files.concat(nested);
+// === Toggle IP visibility ===
+document.getElementById('toggleIP').addEventListener('click', () => {
+  showIP = !showIP;
+  localStorage.setItem('showIP', showIP);
+  loadIP();
+});
+
+// === Fetch Repos ===
+async function fetchRepos() {
+  const res = await fetch(`https://api.github.com/users/${username}/repos`);
+  const data = await res.json();
+  return data.filter(r => r.name.toLowerCase() !== 'giggityfiles.github.io');
+}
+
+// === Recursive file fetch with caching ===
+async function fetchAllFiles(repo, path = '') {
+  const cacheKey = `${repo}/${path}`;
+  if (fileCache[cacheKey]) return fileCache[cacheKey];
+
+  const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/${path}`);
+  if (!res.ok) return [];
+  const items = await res.json();
+  let files = [];
+  for (const item of items) {
+    if (item.type === 'file' && !IGNORED_EXT.test(item.name)) {
+      files.push({ name: item.name, path: item.path, repo });
+    } else if (item.type === 'dir') {
+      files = files.concat(await fetchAllFiles(repo, item.path));
     }
   }
+  fileCache[cacheKey] = files;
   return files;
 }
 
-// render all
-async function render(){
-  const searchTerm=document.getElementById('searchBox').value.toLowerCase();
-  const sortOrder=document.getElementById('sortSelect').value;
-  const container=document.getElementById('repos');
-  container.innerHTML='';
+// === Render repositories ===
+async function render() {
+  const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+  const sortOrder = document.getElementById('sortSelect').value;
+  const container = document.getElementById('repos');
+  container.innerHTML = 'Loading files, please wait...';
 
-  for(const repo of repos){
-    const files=await fetchAllFiles(repo.name);
-    const filtered=files.filter(f=>f.name.toLowerCase().includes(searchTerm));
-    filtered.sort((a,b)=>sortOrder==='az'?a.name.localeCompare(b.name):b.name.localeCompare(a.name));
-    if(!filtered.length) continue;
+  let content = '';
+  for (const repo of repos) {
+    const files = await fetchAllFiles(repo.name);
+    const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm));
+    filtered.sort((a, b) => sortOrder === 'az' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
 
-    const div=document.createElement('div');
-    div.className='repo';
-    div.innerHTML=`<h2>${repo.name}</h2>`;
-    const ul=document.createElement('ul');
-    ul.className='file-list';
-    filtered.forEach(f=>{
-      const li=document.createElement('li');
-      li.innerHTML=`<img src="${iconURL}" alt="icon"><a href="${baseDL}/${f.repo}/${f.path}" download>${f.path}</a>`;
-      ul.appendChild(li);
+    if (!filtered.length) continue;
+    content += `<div class="repo"><h2>${repo.name}</h2><ul class="file-list">`;
+    filtered.forEach(f => {
+      content += `<li><img src="${iconURL}" alt="icon"><a href="${baseDL}/${f.repo}/${f.path}" download>${f.path}</a></li>`;
     });
-    div.appendChild(ul);
-    container.appendChild(div);
+    content += '</ul></div>';
   }
-
-  if(!container.innerHTML) container.textContent='No matching files found.';
+  container.innerHTML = content || 'No matching files found.';
 }
 
-document.getElementById('searchBox').addEventListener('input',render);
-document.getElementById('sortSelect').addEventListener('change',render);
+// === Event listeners ===
+document.getElementById('searchBox').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', render);
 
-(async()=>{
-  repos=await fetchRepos();
+// === Initialize ===
+(async () => {
+  await loadIP();
+  repos = await fetchRepos();
   loadNews();
   render();
 })();

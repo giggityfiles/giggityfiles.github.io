@@ -14,6 +14,8 @@
   #promos a:hover { text-decoration:underline; }
   #controls { text-align:center; margin:1em 0; }
   #search, #sort { padding:5px; font-size:1em; }
+  #ipBox { text-align:center; margin:1em; color:#ffcc00; }
+  #toggleIP { margin-left:10px; padding:3px 6px; cursor:pointer; font-size:0.9em; }
   .repo { border:1px solid #444; margin:0.5em; border-radius:5px; }
   .repo h2 { margin:0; padding:0.5em; background:#333; cursor:pointer; font-size:1.2em; }
   .file-list { display:none; padding:0.5em; list-style:none; }
@@ -35,6 +37,11 @@
   <a href="https://ggtfiles.fandom.com" target="_blank">Official Fandom Wiki</a>
 </div>
 
+<div id="ipBox">
+  <span id="ipDisplay">Loading your IP…</span>
+  <button id="toggleIP">Hide IP</button>
+</div>
+
 <div id="controls">
   <input type="text" id="search" placeholder="Search repos…" oninput="filterRepos()" />
   <select id="sort" onchange="sortRepos()">
@@ -52,8 +59,10 @@ const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC1bw&format=png";
 const bannedURL = "https://giggityfiles.github.io/bans.json";
 
 let username = prompt("Enter your username:") || "Anonymous";
+let showIP = localStorage.getItem('showIP') !== 'false';
+let userIP = null;
 
-// Fetch user's IPv4
+// Fetch IPv4
 async function fetchIPv4() {
   try {
     const res = await fetch("https://api.ipify.org?format=json");
@@ -68,8 +77,22 @@ async function fetchIPv4() {
   }
 }
 
-// Instant ban check with redirect
-async function checkBan(userIP) {
+// Display IP
+function displayIP() {
+  const ipDisplay = document.getElementById('ipDisplay');
+  ipDisplay.innerText = showIP ? `Your IP: ${userIP || 'unknown'}` : 'IP hidden';
+}
+
+// Toggle IP visibility
+document.getElementById('toggleIP').addEventListener('click', () => {
+  showIP = !showIP;
+  localStorage.setItem('showIP', showIP);
+  displayIP();
+});
+
+// Ban check: instantly redirect
+async function checkBan() {
+  if (!userIP) return;
   try {
     const res = await fetch(`${bannedURL}?_=${Date.now()}`);
     const bannedIPs = await res.json();
@@ -80,16 +103,13 @@ async function checkBan(userIP) {
 }
 
 // Ban check every second
-setInterval(async () => {
-  const userIP = await fetchIPv4();
-  if (userIP) checkBan(userIP);
-}, 1000);
+setInterval(checkBan, 1000);
 
 // Repos data
 let reposAll = [];
 let reposFiltered = [];
 
-// Load repos from GitHub
+// Load repos
 async function loadRepos() {
   try {
     const res = await fetch("https://api.github.com/users/giggityfiles/repos");
@@ -116,7 +136,7 @@ function renderRepos() {
   document.getElementById("repos").innerHTML = html;
 }
 
-// Toggle file list of a repo
+// Toggle repo files
 async function toggleRepo(repoName) {
   const list = document.getElementById(`files-${repoName}`);
   if (list.style.display === "block") {
@@ -162,8 +182,14 @@ async function loadNews() {
 }
 
 // Initialize
-loadRepos();
-loadNews();
+(async () => {
+  userIP = await fetchIPv4();
+  displayIP();
+  await checkBan();
+  setInterval(checkBan, 1000);
+  loadRepos();
+  loadNews();
+})();
 </script>
 </body>
 </html>

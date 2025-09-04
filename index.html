@@ -13,15 +13,19 @@
   #promos a { margin:0 10px; color:#4af; text-decoration:none; }
   #promos a:hover { text-decoration:underline; }
   #controls { text-align:center; margin:1em 0; }
+  #search, #sort { padding:5px; font-size:1em; }
   .repo { border:1px solid #444; margin:0.5em; border-radius:5px; }
-  .repo h2 { margin:0; padding:0.5em; background:#333; cursor:pointer; }
+  .repo h2 { margin:0; padding:0.5em; background:#333; cursor:pointer; font-size:1.2em; }
   .file-list { display:none; padding:0.5em; list-style:none; }
   .file-list li { margin:0.25em 0; }
   .file-list img { width:16px; vertical-align:middle; margin-right:5px; }
+  .file-list a { color:#fff; font-size:1.1em; text-decoration:none; }
+  .file-list a:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
 <h1>Giggity Files</h1>
+
 <div id="news">Loading news…</div>
 
 <div id="promos">
@@ -49,6 +53,7 @@ const bannedURL = "https://giggityfiles.github.io/bans.json";
 
 let username = prompt("Enter your username:") || "Anonymous";
 
+// Fetch user's IPv4
 async function fetchIPv4() {
   try {
     const res = await fetch("https://api.ipify.org?format=json");
@@ -63,7 +68,7 @@ async function fetchIPv4() {
   }
 }
 
-// Ban check: instantly redirect
+// Instant ban check with redirect
 async function checkBan(userIP) {
   try {
     const res = await fetch(`${bannedURL}?_=${Date.now()}`);
@@ -73,15 +78,18 @@ async function checkBan(userIP) {
     }
   } catch {}
 }
+
+// Ban check every second
 setInterval(async () => {
   const userIP = await fetchIPv4();
   if (userIP) checkBan(userIP);
 }, 1000);
 
+// Repos data
 let reposAll = [];
 let reposFiltered = [];
 
-// Load repos
+// Load repos from GitHub
 async function loadRepos() {
   try {
     const res = await fetch("https://api.github.com/users/giggityfiles/repos");
@@ -94,6 +102,7 @@ async function loadRepos() {
   }
 }
 
+// Render repos
 function renderRepos() {
   let html = "";
   for (const repo of reposFiltered) {
@@ -107,7 +116,7 @@ function renderRepos() {
   document.getElementById("repos").innerHTML = html;
 }
 
-// Toggle repo files
+// Toggle file list of a repo
 async function toggleRepo(repoName) {
   const list = document.getElementById(`files-${repoName}`);
   if (list.style.display === "block") {
@@ -152,6 +161,7 @@ async function loadNews() {
   }
 }
 
+// Initialize
 loadRepos();
 loadNews();
 </script>

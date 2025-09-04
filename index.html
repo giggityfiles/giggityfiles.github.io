@@ -9,8 +9,10 @@
   body { font-family: 'Oswald', sans-serif; margin:0; background:#111; color:#eee; }
   h1 { text-align:center; margin:1em 0; }
   #news { padding:1em; background:#222; }
-  #controls { display:flex; justify-content:center; gap:10px; padding:10px; }
-  #searchBox, #sortSelect { padding:5px; }
+  #promos { text-align:center; padding:1em; background:#181818; }
+  #promos a { margin:0 10px; color:#4af; text-decoration:none; }
+  #promos a:hover { text-decoration:underline; }
+  #controls { text-align:center; margin:1em 0; }
   .repo { border:1px solid #444; margin:0.5em; border-radius:5px; }
   .repo h2 { margin:0; padding:0.5em; background:#333; cursor:pointer; }
   .file-list { display:none; padding:0.5em; list-style:none; }
@@ -22,11 +24,18 @@
 <h1>Giggity Files</h1>
 <div id="news">Loading news…</div>
 
+<div id="promos">
+  <a href="https://giggityfiles.github.io/ads.html" target="_blank">Check out our promos</a>
+  <a href="https://giggityfiles.github.io/pullreq" target="_blank">Request a file here</a>
+  <a href="https://ggtfiles.blogspot.com" target="_blank">Official Blog</a>
+  <a href="https://ggtfiles.fandom.com" target="_blank">Official Fandom Wiki</a>
+</div>
+
 <div id="controls">
-  <input type="text" id="searchBox" placeholder="Search files..." />
-  <select id="sortSelect">
-    <option value="az">Sort A → Z</option>
-    <option value="za">Sort Z → A</option>
+  <input type="text" id="search" placeholder="Search repos…" oninput="filterRepos()" />
+  <select id="sort" onchange="sortRepos()">
+    <option value="az">Sort: A–Z</option>
+    <option value="za">Sort: Z–A</option>
   </select>
 </div>
 
@@ -37,19 +46,9 @@ const baseAPI = "https://api.github.com/repos/giggityfiles";
 const baseDL = "https://giggityfiles.github.io";
 const iconURL = "https://img.icons8.com/?size=256&id=1u78UgAkC";
 const bannedURL = "https://giggityfiles.github.io/bans.json";
-const webhookURL = "https://example.com/webhook"; // replace with your webhook
-const IGNORED_EXT = /\.(html|md|txt|json|yml|yaml|gitignore|gitattributes)$/i;
 
 let username = prompt("Enter your username:") || "Anonymous";
 
-// Send visit log
-fetch(webhookURL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ content: `${username} has visited giggity files` })
-}).catch(() => {});
-
-// IP + bans
 async function fetchIPv4() {
   try {
     const res = await fetch("https://api.ipify.org?format=json");
@@ -64,28 +63,31 @@ async function fetchIPv4() {
   }
 }
 
+// Ban check: instantly redirect
 async function checkBan(userIP) {
   try {
     const res = await fetch(`${bannedURL}?_=${Date.now()}`);
     const bannedIPs = await res.json();
     if (bannedIPs.includes(userIP)) {
-      window.location.href = "/blocked"; // instant redirect
+      window.location.href = "/blocked";
     }
   } catch {}
 }
-
 setInterval(async () => {
   const userIP = await fetchIPv4();
   if (userIP) checkBan(userIP);
 }, 1000);
 
-// Repos
-let repos = [];
+let reposAll = [];
+let reposFiltered = [];
+
+// Load repos
 async function loadRepos() {
   try {
     const res = await fetch("https://api.github.com/users/giggityfiles/repos");
-    repos = await res.json();
-    repos = repos.filter(r => r.name !== "giggityfiles.github.io");
+    const repos = await res.json();
+    reposAll = repos.filter(r => r.name !== "giggityfiles.github.io");
+    reposFiltered = [...reposAll];
     renderRepos();
   } catch {
     document.getElementById("repos").innerText = "Failed to load repos.";
@@ -93,22 +95,20 @@ async function loadRepos() {
 }
 
 function renderRepos() {
-  const searchTerm = document.getElementById("searchBox").value.toLowerCase();
-  const sortOrder = document.getElementById("sortSelect").value;
-  const container = document.getElementById("repos");
-  container.innerHTML = "";
-
-  for (const repo of repos) {
-    const repoDiv = document.createElement("div");
-    repoDiv.className = "repo";
-    repoDiv.innerHTML = `<h2>${repo.name}</h2><ul id="files-${repo.name}" class="file-list"></ul>`;
-    repoDiv.querySelector("h2").onclick = () => toggleRepo(repo.name, searchTerm, sortOrder);
-    container.appendChild(repoDiv);
+  let html = "";
+  for (const repo of reposFiltered) {
+    html += `
+      <div class="repo">
+        <h2 onclick="toggleRepo('${repo.name}')">${repo.name}</h2>
+        <ul id="files-${repo.name}" class="file-list"></ul>
+      </div>
+    `;
   }
+  document.getElementById("repos").innerHTML = html;
 }
 
-// Expand repo
-async function toggleRepo(repoName, searchTerm = "", sortOrder = "az") {
+// Toggle repo files
+async function toggleRepo(repoName) {
   const list = document.getElementById(`files-${repoName}`);
   if (list.style.display === "block") {
     list.style.display = "none";
@@ -118,21 +118,9 @@ async function toggleRepo(repoName, searchTerm = "", sortOrder = "az") {
     try {
       const res = await fetch(`${baseAPI}/${repoName}/contents`);
       const files = await res.json();
-      let filtered = files.filter(f => f.type === "file" && !IGNORED_EXT.test(f.name));
-      if (searchTerm) {
-        filtered = filtered.filter(f => f.name.toLowerCase().includes(searchTerm));
-      }
-      filtered.sort((a, b) =>
-        sortOrder === "az"
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name)
-      );
-      list.innerHTML = filtered
-        .map(
-          f =>
-            `<li><img src="${iconURL}"><a href="${baseDL}/${repoName}/${f.path}" download>${f.path}</a></li>`
-        )
-        .join("");
+      list.innerHTML = files.map(f => `
+        <li><img src="${iconURL}"><a href="${baseDL}/${repoName}/${f.path}" download>${f.path}</a></li>
+      `).join("");
       list.dataset.loaded = "true";
     } catch {
       list.innerHTML = "<li>Failed to load files.</li>";
@@ -141,7 +129,19 @@ async function toggleRepo(repoName, searchTerm = "", sortOrder = "az") {
   list.style.display = "block";
 }
 
-// News
+// Search & sort
+function filterRepos() {
+  const q = document.getElementById("search").value.toLowerCase();
+  reposFiltered = reposAll.filter(r => r.name.toLowerCase().includes(q));
+  renderRepos();
+}
+function sortRepos() {
+  const mode = document.getElementById("sort").value;
+  reposFiltered.sort((a,b) => mode === "az" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+  renderRepos();
+}
+
+// Load news
 async function loadNews() {
   try {
     const res = await fetch(`${baseDL}/news.txt?${Date.now()}`);
@@ -152,11 +152,6 @@ async function loadNews() {
   }
 }
 
-// Event listeners
-document.getElementById("searchBox").addEventListener("input", renderRepos);
-document.getElementById("sortSelect").addEventListener("change", renderRepos);
-
-// Start
 loadRepos();
 loadNews();
 </script>
